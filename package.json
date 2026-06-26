@@ -1,0 +1,23 @@
+{
+  "name": "lav",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Lav - a bathroom-based social map app. Monorepo root.",
+  "scripts": {
+    "dev": "pnpm --filter lav-mobile start",
+    "ios": "pnpm --filter lav-mobile ios",
+    "android": "pnpm --filter lav-mobile android",
+    "web": "pnpm --filter lav-mobile web",
+    "typecheck": "pnpm --filter lav-mobile typecheck",
+    "lint": "pnpm --filter lav-mobile lint",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:reset": "supabase db reset",
+    "supabase:push": "supabase db push",
+    "supabase:functions:deploy": "supabase functions deploy moderate-photo"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "pnpm@11.9.0"
+}

@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "Lav",
+    "slug": "lav",
+    "scheme": "lav",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#FAFAF8",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.lav.mobile",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Lav uses your location only when you tap \"Use my location\", to find nearby bathrooms. Lav never stores or shares your live location.",
+        "NSPhotoLibraryUsageDescription": "Lav needs access to your photos so you can attach a picture to a bathroom submission or review."
+      }
+    },
+    "android": {
+      "package": "com.lav.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
+          "resizeMode": "contain",
+          "backgroundColor": "#FAFAF8"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Lav uses your location only when you tap \"Use my location\", to find nearby bathrooms. Lav never stores or shares your live location."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Lav needs access to your photos so you can attach a picture to a bathroom submission or review."
+        }
+      ]
+    ]
+  }
+}
