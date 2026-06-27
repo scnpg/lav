@@ -11,6 +11,10 @@ interface MapViewProps {
   selectedId: string | null;
   onSelectPin: (id: string) => void;
   onPressBackground?: () => void;
+  // Bumping `token` (even for the same `id`) re-triggers the camera flyTo -
+  // e.g. from a search dropdown selection. Plain pin taps don't need this,
+  // the pin is already on screen.
+  focusRequest?: { id: string; token: number } | null;
 }
 
 const MAPLIBRE_CSS_HREF = "https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css";
@@ -54,7 +58,7 @@ function applySelectedStyle(el: HTMLDivElement, isSelected: boolean) {
 // Real, interactive MapLibre GL JS map for web only - see MapView.native.tsx
 // for the native (iOS/Android) counterpart, which still renders the mock
 // map layout until real native MapLibre is wired up.
-export function MapView({ bathrooms, selectedId, onSelectPin, onPressBackground }: MapViewProps) {
+export function MapView({ bathrooms, selectedId, onSelectPin, onPressBackground, focusRequest }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<globalThis.Map<string, Marker>>(new globalThis.Map());
@@ -133,6 +137,21 @@ export function MapView({ bathrooms, selectedId, onSelectPin, onPressBackground 
       applySelectedStyle(marker.getElement() as HTMLDivElement, id === selectedId);
     }
   }, [selectedId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !focusRequest) return;
+    const bathroom = bathrooms.find((b) => b.id === focusRequest.id);
+    if (!bathroom) return;
+    map.flyTo({
+      center: [bathroom.longitude, bathroom.latitude],
+      zoom: Math.max(map.getZoom(), 15),
+      duration: 600,
+    });
+    // Only re-run when a *new* focus request comes in (token bump), not on
+    // every bathrooms/selectedId change - see the focusRequest prop comment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequest?.token]);
 
   return (
     <View style={styles.container}>

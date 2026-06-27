@@ -7,7 +7,9 @@ import { BathroomBottomCard } from "../../src/components/map/BathroomBottomCard"
 import { FilterChips, type FilterOption } from "../../src/components/map/FilterChips";
 import { MapView } from "../../src/components/map/MapView";
 import { SearchBar } from "../../src/components/map/SearchBar";
+import { SearchResultsDropdown } from "../../src/components/map/SearchResultsDropdown";
 import { MOCK_BATHROOMS } from "../../src/features/bathrooms/mockData";
+import { searchBathrooms } from "../../src/features/bathrooms/search";
 import { cardShadow, colors, radii, spacing } from "../../src/theme";
 
 // TODO(map): swap MOCK_BATHROOMS for src/features/bathrooms/api.ts's
@@ -26,6 +28,7 @@ export default function MapScreen() {
   const [searchText, setSearchText] = useState("");
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [focusRequest, setFocusRequest] = useState<{ id: string; token: number } | null>(null);
 
   function toggleFilter(key: string) {
     setActiveFilters((prev) => {
@@ -36,30 +39,39 @@ export default function MapScreen() {
     });
   }
 
-  const visibleBathrooms = useMemo(() => {
-    const query = searchText.trim().toLowerCase();
-
+  const filteredByChips = useMemo(() => {
     return MOCK_BATHROOMS.filter((bathroom) => {
-      if (query) {
-        const haystack = [bathroom.name, bathroom.venue_name, bathroom.city, ...bathroom.tags]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        if (!haystack.includes(query)) return false;
-      }
-
       if (activeFilters.has("free") && bathroom.cost_type !== "free") return false;
       if (activeFilters.has("wheelchair") && !bathroom.amenities.wheelchair_accessible) return false;
       if (activeFilters.has("bidet") && bathroom.toilet_type !== "bidet" && !bathroom.tags.includes("bidet")) {
         return false;
       }
       if (activeFilters.has("public_only") && bathroom.access_type !== "public") return false;
-
       return true;
     });
-  }, [searchText, activeFilters]);
+  }, [activeFilters]);
+
+  const trimmedQuery = searchText.trim();
+  const isSearching = trimmedQuery.length > 0;
+
+  // While searching, the dropdown and the map pins show the exact same set -
+  // search narrows both at once instead of the dropdown being a separate
+  // index into all of MOCK_BATHROOMS.
+  const visibleBathrooms = useMemo(() => {
+    return isSearching ? searchBathrooms(filteredByChips, trimmedQuery) : filteredByChips;
+  }, [filteredByChips, isSearching, trimmedQuery]);
 
   const selectedBathroom = visibleBathrooms.find((b) => b.id === selectedId) ?? null;
+
+  function selectBathroom(id: string) {
+    setSelectedId(id);
+    setFocusRequest({ id, token: Date.now() });
+  }
+
+  function handleSelectFromDropdown(id: string) {
+    selectBathroom(id);
+    setSearchText("");
+  }
 
   function handleUseMyLocation() {
     Alert.alert(
@@ -72,9 +84,13 @@ export default function MapScreen() {
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <View style={styles.topControls}>
         <SearchBar value={searchText} onChangeText={setSearchText} />
-        <View style={styles.filtersRow}>
-          <FilterChips options={FILTER_OPTIONS} activeKeys={activeFilters} onToggle={toggleFilter} />
-        </View>
+        {isSearching ? (
+          <SearchResultsDropdown results={visibleBathrooms} onSelect={handleSelectFromDropdown} />
+        ) : (
+          <View style={styles.filtersRow}>
+            <FilterChips options={FILTER_OPTIONS} activeKeys={activeFilters} onToggle={toggleFilter} />
+          </View>
+        )}
       </View>
 
       <View style={styles.mapArea}>
@@ -83,6 +99,7 @@ export default function MapScreen() {
           selectedId={selectedId}
           onSelectPin={setSelectedId}
           onPressBackground={() => setSelectedId(null)}
+          focusRequest={focusRequest}
         />
 
         <Pressable

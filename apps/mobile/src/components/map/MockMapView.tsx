@@ -8,6 +8,9 @@ interface MockMapViewProps {
   selectedId: string | null;
   onSelectPin: (id: string) => void;
   onPressBackground?: () => void;
+  // Accepted for prop-shape compatibility with MapView.web.tsx (this mock
+  // layout has no camera to move, so it's a no-op here).
+  focusRequest?: { id: string; token: number } | null;
 }
 
 /**
