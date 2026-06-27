@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { ACCESS_TYPE_LABELS, COST_TYPE_LABELS } from "../../constants/enumLabels";
@@ -14,42 +15,51 @@ interface BathroomBottomCardProps {
 }
 
 export function BathroomBottomCard({ bathroom, onClose }: BathroomBottomCardProps) {
+  const router = useRouter();
+
   return (
     <View style={[styles.card, cardShadow("md")]}>
       <Pressable onPress={onClose} style={styles.closeButton} hitSlop={8}>
         <Ionicons name="close" size={18} color={colors.textSecondary} />
       </Pressable>
 
-      <Text style={styles.name} numberOfLines={1}>
-        {bathroom.name}
-      </Text>
-      {bathroom.venue_name ? (
-        <Text style={styles.venue} numberOfLines={1}>
-          {bathroom.venue_name}
+      <Pressable onPress={() => router.push(`/bathrooms/${bathroom.id}`)}>
+        <Text style={styles.name} numberOfLines={1}>
+          {bathroom.name}
         </Text>
-      ) : null}
-
-      <View style={styles.metaRow}>
-        <View style={styles.scoreBadge}>
-          <Ionicons name="star" size={12} color={colors.gold} />
-          <Text style={styles.scoreText}>{formatScore(bathroom.overall_score)}</Text>
-        </View>
-        <Text style={styles.metaText}>{formatDistance(bathroom.distance_meters)}</Text>
-        {bathroom.access_type ? (
-          <Text style={styles.metaText}>{ACCESS_TYPE_LABELS[bathroom.access_type]}</Text>
+        {bathroom.venue_name ? (
+          <Text style={styles.venue} numberOfLines={1}>
+            {bathroom.venue_name}
+          </Text>
         ) : null}
-        {bathroom.cost_type ? <Text style={styles.metaText}>{COST_TYPE_LABELS[bathroom.cost_type]}</Text> : null}
-      </View>
 
-      {bathroom.tags.length > 0 ? (
-        <View style={styles.tagRow}>
-          {bathroom.tags.slice(0, 4).map((tag) => (
-            <View key={tag} style={styles.tagChip}>
-              <Text style={styles.tagText}>{TAG_LABELS[tag as VibeTag] ?? tag}</Text>
-            </View>
-          ))}
+        <View style={styles.metaRow}>
+          <View style={styles.scoreBadge}>
+            <Ionicons name="star" size={12} color={colors.gold} />
+            <Text style={styles.scoreText}>{formatScore(bathroom.overall_score)}</Text>
+          </View>
+          <Text style={styles.metaText}>{formatDistance(bathroom.distance_meters)}</Text>
+          {bathroom.access_type ? (
+            <Text style={styles.metaText}>{ACCESS_TYPE_LABELS[bathroom.access_type]}</Text>
+          ) : null}
+          {bathroom.cost_type ? <Text style={styles.metaText}>{COST_TYPE_LABELS[bathroom.cost_type]}</Text> : null}
         </View>
-      ) : null}
+
+        {bathroom.tags.length > 0 ? (
+          <View style={styles.tagRow}>
+            {bathroom.tags.slice(0, 4).map((tag) => (
+              <View key={tag} style={styles.tagChip}>
+                <Text style={styles.tagText}>{TAG_LABELS[tag as VibeTag] ?? tag}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        <View style={styles.detailsLinkRow}>
+          <Text style={styles.detailsLinkText}>View details</Text>
+          <Ionicons name="chevron-forward" size={14} color={colors.accent} />
+        </View>
+      </Pressable>
     </View>
   );
 }
@@ -118,5 +128,16 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     color: colors.textSecondary,
     fontWeight: fontWeight.medium,
+  },
+  detailsLinkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    marginTop: spacing.md,
+  },
+  detailsLinkText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: colors.accent,
   },
 });

@@ -1,15 +1,59 @@
 import type { BathroomNearby } from "../../types/database";
 
-// Mock data for the Map tab while it's not wired to Supabase yet (see
-// src/features/bathrooms/api.ts for the real get_verified_bathrooms_nearby
-// call this will be swapped for). Shaped exactly like BathroomNearby so the
-// screen/components don't need to change when the real data lands - only
+// Mock data for the Map tab + bathroom detail screen while neither is wired
+// to Supabase yet (see src/features/bathrooms/api.ts for the real
+// get_verified_bathrooms_nearby call this will be swapped for). Shaped
+// exactly like BathroomNearby (plus the detail-only extras below) so the
+// screens/components don't need to change when the real data lands - only
 // the data source does.
 //
 // Coordinates are real Washington DC neighborhoods, mirroring
 // supabase/seed/seed.sql's flavor (not the same rows - this is independent
 // throwaway UI mock data, not seeded into any database).
-export const MOCK_BATHROOMS: BathroomNearby[] = [
+
+export interface MockReview {
+  id: string;
+  username: string;
+  createdAt: string;
+  overall: number;
+  caption: string;
+  // Score breakdown is optional per review - some reviewers leave a full
+  // breakdown, some just leave an overall score + caption. Mirrors
+  // Review in src/types/database.ts, minus the bathroom_id/user_id plumbing
+  // a real row would have.
+  cleanliness?: number;
+  safety?: number;
+  privacy?: number;
+  smell?: number;
+  prestige?: number;
+}
+
+// Access tips are deliberately separate from reviews (see BathroomDetail
+// requirements) and deliberately never contain a real code - see the
+// "Important access-code rule" note in enumLabels.ts. Keep new tips to the
+// same safe-example style: "ask staff", "code on receipt", "purchase
+// required", never an actual code/word.
+export interface MockAccessTip {
+  id: string;
+  username: string;
+  createdAt: string;
+  note: string;
+}
+
+export interface MockBathroomExtras {
+  stallCount: number;
+  urinalCount: number;
+  // Plain labels, not images - there's no real photo upload yet (see
+  // src/components/bathroom/PhotoCarousel.tsx), so the carousel renders
+  // these as placeholder tiles instead of pretending to have real photos.
+  photoPlaceholders: string[];
+  reviews: MockReview[];
+  accessTips: MockAccessTip[];
+}
+
+export type MockBathroom = BathroomNearby & MockBathroomExtras;
+
+export const MOCK_BATHROOMS: MockBathroom[] = [
   {
     id: "mock-1",
     name: "Eastern Market Plaza Restroom",
@@ -47,6 +91,38 @@ export const MOCK_BATHROOMS: BathroomNearby[] = [
     verified_at: "2026-04-01T00:00:00.000Z",
     last_verified_at: "2026-06-15T00:00:00.000Z",
     distance_meters: 320,
+    stallCount: 3,
+    urinalCount: 1,
+    photoPlaceholders: ["Entrance", "Sink area", "Stall row", "Hand dryer"],
+    reviews: [
+      {
+        id: "mock-1-review-1",
+        username: "@dc_dweller",
+        createdAt: "2026-06-18T14:30:00.000Z",
+        overall: 4.5,
+        caption: "Surprisingly clean for a public restroom right by the market. Smells like soap, not standing water.",
+        cleanliness: 4.5,
+        safety: 4,
+        privacy: 4,
+        smell: 4.5,
+        prestige: 2,
+      },
+      {
+        id: "mock-1-review-2",
+        username: "@market_regular",
+        createdAt: "2026-06-10T09:15:00.000Z",
+        overall: 4,
+        caption: "Lines get long on Saturdays but it's kept up well.",
+      },
+    ],
+    accessTips: [
+      {
+        id: "mock-1-tip-1",
+        username: "@dc_dweller",
+        createdAt: "2026-06-18T14:32:00.000Z",
+        note: "Open to anyone, no purchase needed - just walk in from the plaza side.",
+      },
+    ],
   },
   {
     id: "mock-2",
@@ -85,6 +161,37 @@ export const MOCK_BATHROOMS: BathroomNearby[] = [
     verified_at: "2026-04-10T00:00:00.000Z",
     last_verified_at: "2026-06-01T00:00:00.000Z",
     distance_meters: 540,
+    stallCount: 1,
+    urinalCount: 0,
+    photoPlaceholders: ["Door", "Sink", "Mirror"],
+    reviews: [
+      {
+        id: "mock-2-review-1",
+        username: "@latte_logs",
+        createdAt: "2026-06-12T08:00:00.000Z",
+        overall: 4,
+        caption: "Single stall, always clean, smells like the coffee shop.",
+        cleanliness: 4,
+        safety: 4.5,
+        privacy: 4,
+        smell: 4,
+      },
+      {
+        id: "mock-2-review-2",
+        username: "@espresso_em",
+        createdAt: "2026-05-30T11:20:00.000Z",
+        overall: 4,
+        caption: "Worth the price of a drip coffee.",
+      },
+    ],
+    accessTips: [
+      {
+        id: "mock-2-tip-1",
+        username: "@latte_logs",
+        createdAt: "2026-06-12T08:02:00.000Z",
+        note: "Buy literally anything, then ask the barista for the key.",
+      },
+    ],
   },
   {
     id: "mock-3",
@@ -123,6 +230,38 @@ export const MOCK_BATHROOMS: BathroomNearby[] = [
     verified_at: "2026-03-20T00:00:00.000Z",
     last_verified_at: "2026-06-20T00:00:00.000Z",
     distance_meters: 1850,
+    stallCount: 4,
+    urinalCount: 2,
+    photoPlaceholders: ["Lobby hallway", "Marble sink", "Stall", "Full mirror", "Soap dispenser"],
+    reviews: [
+      {
+        id: "mock-3-review-1",
+        username: "@hotel_hopper",
+        createdAt: "2026-06-21T19:45:00.000Z",
+        overall: 5,
+        caption: "Felt like I was getting ready for a gala. Full-length mirror, great lighting.",
+        cleanliness: 5,
+        safety: 5,
+        privacy: 4.5,
+        smell: 5,
+        prestige: 5,
+      },
+      {
+        id: "mock-3-review-2",
+        username: "@outfit_check_dc",
+        createdAt: "2026-06-05T21:10:00.000Z",
+        overall: 4.5,
+        caption: "Best lighting in the city for a mirror check.",
+      },
+    ],
+    accessTips: [
+      {
+        id: "mock-3-tip-1",
+        username: "@hotel_hopper",
+        createdAt: "2026-06-21T19:47:00.000Z",
+        note: "Walk in confidently, restrooms are past the lobby bar - nobody stops you.",
+      },
+    ],
   },
   {
     id: "mock-4",
@@ -161,6 +300,30 @@ export const MOCK_BATHROOMS: BathroomNearby[] = [
     verified_at: "2026-02-28T00:00:00.000Z",
     last_verified_at: "2026-05-30T00:00:00.000Z",
     distance_meters: 2210,
+    stallCount: 5,
+    urinalCount: 3,
+    photoPlaceholders: ["Hallway entrance", "Sink row", "Stall"],
+    reviews: [
+      {
+        id: "mock-4-review-1",
+        username: "@campus_commuter",
+        createdAt: "2026-06-08T13:00:00.000Z",
+        overall: 3.5,
+        caption: "Decent between classes, gets busy at the top of the hour.",
+        cleanliness: 3.5,
+        safety: 4,
+        privacy: 3.5,
+        smell: 3,
+      },
+    ],
+    accessTips: [
+      {
+        id: "mock-4-tip-1",
+        username: "@campus_commuter",
+        createdAt: "2026-06-08T13:02:00.000Z",
+        note: "Open to the public, no student ID needed.",
+      },
+    ],
   },
   {
     id: "mock-5",
@@ -199,6 +362,31 @@ export const MOCK_BATHROOMS: BathroomNearby[] = [
     verified_at: "2026-05-01T00:00:00.000Z",
     last_verified_at: "2026-06-18T00:00:00.000Z",
     distance_meters: 4120,
+    stallCount: 2,
+    urinalCount: 1,
+    photoPlaceholders: ["Entry hall", "Bidet seat", "Full mirror", "Velvet bench"],
+    reviews: [
+      {
+        id: "mock-5-review-1",
+        username: "@member_since_22",
+        createdAt: "2026-06-19T22:00:00.000Z",
+        overall: 5,
+        caption: "Heated bidet seat in a members' club. This is the bathroom flex of the year.",
+        cleanliness: 5,
+        safety: 5,
+        privacy: 5,
+        smell: 4.5,
+        prestige: 5,
+      },
+    ],
+    accessTips: [
+      {
+        id: "mock-5-tip-1",
+        username: "@member_since_22",
+        createdAt: "2026-06-19T22:02:00.000Z",
+        note: "Members only - a current member has to sign you in at the door.",
+      },
+    ],
   },
   {
     id: "mock-6",
@@ -237,6 +425,37 @@ export const MOCK_BATHROOMS: BathroomNearby[] = [
     verified_at: "2026-01-15T00:00:00.000Z",
     last_verified_at: "2026-01-15T00:00:00.000Z",
     distance_meters: 1490,
+    stallCount: 1,
+    urinalCount: 1,
+    photoPlaceholders: ["Door", "Sink"],
+    reviews: [
+      {
+        id: "mock-6-review-1",
+        username: "@late_night_dc",
+        createdAt: "2026-06-02T01:30:00.000Z",
+        overall: 1.5,
+        caption: "Lock is broken and it smells like the snack aisle's worst day.",
+        cleanliness: 1,
+        safety: 2,
+        privacy: 1.5,
+        smell: 1,
+      },
+      {
+        id: "mock-6-review-2",
+        username: "@brave_traveler",
+        createdAt: "2026-05-20T23:50:00.000Z",
+        overall: 1.5,
+        caption: "Only use if it's a real emergency.",
+      },
+    ],
+    accessTips: [
+      {
+        id: "mock-6-tip-1",
+        username: "@late_night_dc",
+        createdAt: "2026-06-02T01:32:00.000Z",
+        note: "Ask the cashier - door sticks, push hard.",
+      },
+    ],
   },
   {
     id: "mock-7",
@@ -275,6 +494,30 @@ export const MOCK_BATHROOMS: BathroomNearby[] = [
     verified_at: "2026-04-22T00:00:00.000Z",
     last_verified_at: "2026-06-10T00:00:00.000Z",
     distance_meters: 980,
+    stallCount: 6,
+    urinalCount: 2,
+    photoPlaceholders: ["Entrance ramp", "Accessible stall", "Changing table", "Sink row"],
+    reviews: [
+      {
+        id: "mock-7-review-1",
+        username: "@stroller_dc",
+        createdAt: "2026-06-14T15:20:00.000Z",
+        overall: 4.5,
+        caption: "Real changing table and a stall big enough for a wheelchair. Rare downtown.",
+        cleanliness: 4.5,
+        safety: 4.5,
+        privacy: 4,
+        smell: 4.5,
+      },
+    ],
+    accessTips: [
+      {
+        id: "mock-7-tip-1",
+        username: "@stroller_dc",
+        createdAt: "2026-06-14T15:22:00.000Z",
+        note: "Free and open to everyone, no ticket needed for the restroom itself.",
+      },
+    ],
   },
   {
     id: "mock-8",
@@ -313,6 +556,30 @@ export const MOCK_BATHROOMS: BathroomNearby[] = [
     verified_at: "2026-05-25T00:00:00.000Z",
     last_verified_at: "2026-05-25T00:00:00.000Z",
     distance_meters: 3460,
+    stallCount: 2,
+    urinalCount: 1,
+    photoPlaceholders: ["Unmarked door", "Sink", "Mirror", "Dim hallway"],
+    reviews: [
+      {
+        id: "mock-8-review-1",
+        username: "@speakeasy_scout",
+        createdAt: "2026-06-16T23:15:00.000Z",
+        overall: 4.5,
+        caption: "Dim, moody lighting and it actually smells good. Matches the vibe of the bar.",
+        cleanliness: 4.5,
+        safety: 4,
+        privacy: 5,
+        smell: 4,
+      },
+    ],
+    accessTips: [
+      {
+        id: "mock-8-tip-1",
+        username: "@speakeasy_scout",
+        createdAt: "2026-06-16T23:17:00.000Z",
+        note: "Code's printed at the bottom of your receipt - easy to miss the first time.",
+      },
+    ],
   },
   {
     id: "mock-9",
@@ -351,5 +618,30 @@ export const MOCK_BATHROOMS: BathroomNearby[] = [
     verified_at: "2026-06-02T00:00:00.000Z",
     last_verified_at: "2026-06-02T00:00:00.000Z",
     distance_meters: 2670,
+    stallCount: 3,
+    urinalCount: 0,
+    photoPlaceholders: ["Spa entrance", "Bidet seat", "Touchless sink", "Towel station"],
+    reviews: [
+      {
+        id: "mock-9-review-1",
+        username: "@spa_day_dc",
+        createdAt: "2026-06-09T17:40:00.000Z",
+        overall: 5,
+        caption: "Heated bidet, touchless everything. Worth the day pass alone.",
+        cleanliness: 5,
+        safety: 5,
+        privacy: 5,
+        smell: 5,
+        prestige: 4.5,
+      },
+    ],
+    accessTips: [
+      {
+        id: "mock-9-tip-1",
+        username: "@spa_day_dc",
+        createdAt: "2026-06-09T17:42:00.000Z",
+        note: "Buy a day pass or show a membership at the front desk.",
+      },
+    ],
   },
 ];
