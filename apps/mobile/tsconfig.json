@@ -6,7 +6,14 @@
       "@/*": [
         "./src/*"
       ]
-    }
+    },
+    // tsc doesn't know about Metro's platform-extension resolution
+    // (.ios/.android/.native/.web). This makes bare imports like
+    // "./MapView" resolve to the native file for type-checking purposes -
+    // every file (including MapView.web.tsx) still gets compiled on its
+    // own since it's matched by "include" below; this only affects which
+    // file wins when another file imports the bare module name.
+    "moduleSuffixes": [".native", ""]
   },
   "include": [
     "**/*.ts",

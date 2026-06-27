@@ -5,14 +5,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BathroomBottomCard } from "../../src/components/map/BathroomBottomCard";
 import { FilterChips, type FilterOption } from "../../src/components/map/FilterChips";
-import { MockMapView } from "../../src/components/map/MockMapView";
+import { MapView } from "../../src/components/map/MapView";
 import { SearchBar } from "../../src/components/map/SearchBar";
 import { MOCK_BATHROOMS } from "../../src/features/bathrooms/mockData";
 import { cardShadow, colors, radii, spacing } from "../../src/theme";
 
-// TODO(map): swap MOCK_BATHROOMS + MockMapView for
-// src/features/bathrooms/api.ts's getNearbyBathrooms() and a real
-// MapView.native.tsx / MapView.web.tsx (MapLibre) once Supabase is wired up.
+// TODO(map): swap MOCK_BATHROOMS for src/features/bathrooms/api.ts's
+// getNearbyBathrooms() once Supabase is wired up. MapView resolves to a real
+// MapLibre GL JS map on web (MapView.web.tsx) and the mock layout on native
+// (MapView.native.tsx) until native MapLibre is wired up too.
 
 const FILTER_OPTIONS: FilterOption[] = [
   { key: "free", label: "Free" },
@@ -77,7 +78,7 @@ export default function MapScreen() {
       </View>
 
       <View style={styles.mapArea}>
-        <MockMapView
+        <MapView
           bathrooms={visibleBathrooms}
           selectedId={selectedId}
           onSelectPin={setSelectedId}

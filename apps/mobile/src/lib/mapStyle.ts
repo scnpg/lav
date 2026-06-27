@@ -12,14 +12,17 @@ import { env } from "./env";
 //   - Self-hosted tileserver-gl + OSM data, for full control in production.
 //
 // DEV FALLBACK: if EXPO_PUBLIC_MAP_STYLE_URL is unset, we fall back to
-// MapLibre's own public demo style. It's free and requires no signup, but is
-// low-detail and not meant for production traffic - replace it before
-// shipping. When using any third-party OSM-based tile host, also check their
-// usage policy/attribution requirements (most require a visible
+// OpenFreeMap's hosted "liberty" style (https://openfreemap.org) - free, no
+// API key/signup, and detailed enough for real development (unlike
+// MapLibre's own bare-bones demo style). It's still a third party's
+// infrastructure though, not meant for production traffic at scale -
+// replace it with your own MapTiler/Stadia/self-hosted style before
+// shipping. When using any third-party OSM-based tile host, also check
+// their usage policy/attribution requirements (most require a visible
 // "© OpenStreetMap contributors" credit, which MapView.web.tsx /
-// MapView.native.tsx already render).
+// MapView.native.tsx already render via MapLibre's attribution control).
 // ---------------------------------------------------------------------------
-const DEV_FALLBACK_STYLE_URL = "https://demotiles.maplibre.org/style.json";
+const DEV_FALLBACK_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 
 export const MAP_STYLE_URL = env.mapStyleUrl?.trim() || DEV_FALLBACK_STYLE_URL;
 
