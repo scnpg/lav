@@ -11,10 +11,9 @@ interface ScoreSectionProps {
   safety: number;
   privacy: number;
   smell: number;
-  prestige: number;
 }
 
-const BREAKDOWN_LABELS = ["Cleanliness", "Safety", "Privacy", "Smell", "Prestige"] as const;
+const BREAKDOWN_LABELS = ["Cleanliness", "Safety", "Privacy", "Smell"] as const;
 
 export function ScoreSection({
   overallScore,
@@ -23,9 +22,8 @@ export function ScoreSection({
   safety,
   privacy,
   smell,
-  prestige,
 }: ScoreSectionProps) {
-  const breakdownValues = [cleanliness, safety, privacy, smell, prestige];
+  const breakdownValues = [cleanliness, safety, privacy, smell];
 
   return (
     <View style={styles.container}>

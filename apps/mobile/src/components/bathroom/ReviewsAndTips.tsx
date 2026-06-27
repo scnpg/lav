@@ -62,7 +62,6 @@ export function ReviewsSection({ reviews }: ReviewsSectionProps) {
               ["Safety", review.safety],
               ["Privacy", review.privacy],
               ["Smell", review.smell],
-              ["Prestige", review.prestige],
             ] as const
           ).filter(([, value]) => value !== undefined) as [string, number][];
 

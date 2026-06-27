@@ -79,7 +79,6 @@ export default function BathroomDetailScreen() {
             safety={bathroom.safety_score}
             privacy={bathroom.privacy_score}
             smell={bathroom.smell_score}
-            prestige={bathroom.prestige_score}
           />
 
           <ActionButtonsRow bathroomName={bathroom.name} />

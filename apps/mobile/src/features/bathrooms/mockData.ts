@@ -20,12 +20,12 @@ export interface MockReview {
   // Score breakdown is optional per review - some reviewers leave a full
   // breakdown, some just leave an overall score + caption. Mirrors
   // Review in src/types/database.ts, minus the bathroom_id/user_id plumbing
-  // a real row would have.
+  // a real row would have. No `prestige` here on purpose - the bathroom
+  // detail screen dropped that metric (see ScoreSection.tsx).
   cleanliness?: number;
   safety?: number;
   privacy?: number;
   smell?: number;
-  prestige?: number;
 }
 
 // Access tips are deliberately separate from reviews (see BathroomDetail
@@ -105,7 +105,6 @@ export const MOCK_BATHROOMS: MockBathroom[] = [
         safety: 4,
         privacy: 4,
         smell: 4.5,
-        prestige: 2,
       },
       {
         id: "mock-1-review-2",
@@ -244,7 +243,6 @@ export const MOCK_BATHROOMS: MockBathroom[] = [
         safety: 5,
         privacy: 4.5,
         smell: 5,
-        prestige: 5,
       },
       {
         id: "mock-3-review-2",
@@ -376,7 +374,6 @@ export const MOCK_BATHROOMS: MockBathroom[] = [
         safety: 5,
         privacy: 5,
         smell: 4.5,
-        prestige: 5,
       },
     ],
     accessTips: [
@@ -632,7 +629,6 @@ export const MOCK_BATHROOMS: MockBathroom[] = [
         safety: 5,
         privacy: 5,
         smell: 5,
-        prestige: 4.5,
       },
     ],
     accessTips: [
