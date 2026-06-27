@@ -11,7 +11,9 @@ interface BadgeCardProps {
 // Color usage here follows the oasis palette's stated roles: sand for the
 // soft card background, palm green for an unlocked tier, muted clay for a
 // still-locked tier ("pending/needs work"), lagoon teal for the active
-// progress-to-next-tier bar regardless of locked/unlocked.
+// progress-to-next-tier bar regardless of locked/unlocked. Width is owned
+// by the parent ResponsiveGrid, not this component - the card itself just
+// fills whatever column width it's given.
 export function BadgeCard({ progress }: BadgeCardProps) {
   const { badge, unlockedTierIndex, currentValue, nextTier } = progress;
   const isUnlocked = unlockedTierIndex >= 0;
@@ -27,13 +29,19 @@ export function BadgeCard({ progress }: BadgeCardProps) {
 
   return (
     <View style={styles.card}>
-      <View style={[styles.iconCircle, isUnlocked ? styles.iconCircleUnlocked : styles.iconCircleLocked]}>
-        <Ionicons name={badge.icon} size={20} color={colors.textPrimary} />
+      <View style={styles.topRow}>
+        <View style={[styles.iconCircle, isUnlocked ? styles.iconCircleUnlocked : styles.iconCircleLocked]}>
+          <Ionicons name={badge.icon} size={18} color={colors.textPrimary} />
+        </View>
+        <View style={styles.titleBlock}>
+          <Text style={styles.name} numberOfLines={1}>
+            {badge.name}
+          </Text>
+          <Text style={[styles.status, isUnlocked ? styles.statusUnlocked : styles.statusLocked]} numberOfLines={1}>
+            {statusLabel}
+          </Text>
+        </View>
       </View>
-      <Text style={styles.name} numberOfLines={1}>
-        {badge.name}
-      </Text>
-      <Text style={[styles.status, isUnlocked ? styles.statusUnlocked : styles.statusLocked]}>{statusLabel}</Text>
       <Text style={styles.description} numberOfLines={2}>
         {badge.description}
       </Text>
@@ -41,7 +49,7 @@ export function BadgeCard({ progress }: BadgeCardProps) {
         <View style={[styles.fill, { width: `${pct}%` }]} />
       </View>
       <Text style={styles.progressText}>
-        {nextTier ? `${currentValue} / ${nextTier.threshold}` : `${currentValue} / ${floor} (max tier)`}
+        {nextTier ? `${currentValue} / ${nextTier.threshold}` : `${currentValue} / ${floor} - max tier`}
       </Text>
     </View>
   );
@@ -49,20 +57,24 @@ export function BadgeCard({ progress }: BadgeCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    flexBasis: "47%",
-    flexGrow: 1,
+    width: "100%",
     backgroundColor: colors.sandMuted,
-    borderRadius: radii.lg,
-    padding: spacing.md,
-    gap: 4,
+    borderRadius: radii.xl,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: 6,
+  },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
   },
   iconCircle: {
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
     borderRadius: radii.full,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 4,
   },
   iconCircleUnlocked: {
     backgroundColor: colors.success,
@@ -70,35 +82,39 @@ const styles = StyleSheet.create({
   iconCircleLocked: {
     backgroundColor: colors.warningMuted,
   },
+  titleBlock: {
+    flex: 1,
+    gap: 1,
+  },
   name: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.bold,
     color: colors.textPrimary,
   },
   status: {
-    fontSize: fontSize.xs,
+    fontSize: fontSize.base,
     fontWeight: fontWeight.semibold,
   },
   statusUnlocked: {
-    color: colors.textPrimary,
+    color: colors.accentStrong,
   },
   statusLocked: {
     color: colors.textMuted,
   },
   description: {
-    fontSize: fontSize.xs,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
-    marginTop: 2,
+    lineHeight: fontSize.sm * 1.35,
   },
   track: {
-    height: 5,
+    height: 6,
     borderRadius: radii.full,
     backgroundColor: colors.surface,
     overflow: "hidden",
-    marginTop: spacing.xs,
+    marginTop: 2,
   },
   fill: {
-    height: 5,
+    height: 6,
     borderRadius: radii.full,
     backgroundColor: colors.accent,
   },

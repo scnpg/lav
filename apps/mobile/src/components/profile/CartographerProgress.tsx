@@ -51,10 +51,11 @@ export function CartographerProgress({ stats }: CartographerProgressProps) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radii.lg,
+    borderRadius: radii.xl,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     gap: spacing.sm,
   },
   headerRow: {
@@ -80,12 +81,12 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   title: {
-    fontSize: fontSize.md,
+    fontSize: fontSize.lg,
     fontWeight: fontWeight.bold,
     color: colors.textPrimary,
   },
   subtitle: {
-    fontSize: fontSize.xs,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
   },
   track: {
@@ -100,7 +101,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
   },
   progressText: {
-    fontSize: fontSize.xs,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
   },
 });
