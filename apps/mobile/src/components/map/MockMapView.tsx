@@ -75,7 +75,10 @@ export function MockMapView({ bathrooms, selectedId, onSelectPin, onPressBackgro
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.skyMuted,
+    // Warm off-white land tone, matching the real web map's oasis re-theme
+    // (src/lib/mapTheme.ts) so the native fallback feels like the same map
+    // rather than a different blue placeholder.
+    backgroundColor: colors.background,
     overflow: "hidden",
   },
   gridOverlay: {

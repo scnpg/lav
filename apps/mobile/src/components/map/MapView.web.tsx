@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { LngLatBounds, Marker, MapLibreMap, NavigationControl } from "maplibre-gl";
 
 import { DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, IS_USING_FALLBACK_MAP_STYLE, MAP_STYLE_URL } from "../../lib/mapStyle";
+import { applyOasisMapTheme } from "../../lib/mapTheme";
 import { colors, fontSize, fontWeight, radii } from "../../theme";
 import type { BathroomNearby } from "../../types/database";
 
@@ -83,6 +84,9 @@ export function MapView({ bathrooms, selectedId, onSelectPin, onPressBackground,
     });
     map.addControl(new NavigationControl({ showCompass: false }), "top-right");
     map.on("click", () => onPressBackgroundRef.current?.());
+    // Liberty's base style isn't ours to edit at the source - recolor it
+    // toward the oasis palette once it's actually loaded. See mapTheme.ts.
+    map.once("load", () => applyOasisMapTheme(map));
     mapRef.current = map;
 
     return () => {
@@ -173,7 +177,9 @@ export function MapView({ bathrooms, selectedId, onSelectPin, onPressBackground,
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.skyMuted,
+    // Matches the oasis map theme's land tone (mapTheme.ts) so there's no
+    // blue flash before the real tiles/style finish painting.
+    backgroundColor: colors.background,
     overflow: "hidden",
   },
   devBadge: {
