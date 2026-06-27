@@ -25,7 +25,7 @@ export function PhotoCarousel({ photoLabels }: PhotoCarouselProps) {
         ))}
       </ScrollView>
       <View style={styles.countBadge}>
-        <Ionicons name="images-outline" size={12} color={colors.textOnAccent} />
+        <Ionicons name="images-outline" size={12} color={colors.textOnOverlay} />
         <Text style={styles.countText}>{photoLabels.length} photos</Text>
       </View>
     </View>
@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.full,
   },
   countText: {
-    color: colors.textOnAccent,
+    color: colors.textOnOverlay,
     fontSize: fontSize.xs,
     fontWeight: fontWeight.medium,
   },

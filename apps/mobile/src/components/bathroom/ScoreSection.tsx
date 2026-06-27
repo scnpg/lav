@@ -63,13 +63,17 @@ function PerspectiveCard({ label, value, placeholder }: { label: string; value?:
   );
 }
 
+// Purely presentational - palm green for a high score (rule: "high-score
+// states"), lagoon teal otherwise. No new data, just a color hint on the
+// same number already shown.
 function ScoreBar({ label, value }: { label: string; value: number }) {
   const pct = Math.max(0, Math.min(1, value / 5)) * 100;
+  const fillColor = value >= 4 ? colors.success : colors.accent;
   return (
     <View style={styles.barRow}>
       <Text style={styles.barLabel}>{label}</Text>
       <View style={styles.barTrack}>
-        <View style={[styles.barFill, { width: `${pct}%` }]} />
+        <View style={[styles.barFill, { width: `${pct}%`, backgroundColor: fillColor }]} />
       </View>
       <Text style={styles.barValue}>{formatScore(value)}</Text>
     </View>
@@ -101,7 +105,7 @@ const styles = StyleSheet.create({
   },
   perspectiveCard: {
     flex: 1,
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.sandMuted,
     borderRadius: radii.md,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
@@ -146,7 +150,6 @@ const styles = StyleSheet.create({
   barFill: {
     height: 6,
     borderRadius: radii.full,
-    backgroundColor: colors.accent,
   },
   barValue: {
     width: 28,

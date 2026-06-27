@@ -11,11 +11,11 @@ export function cardShadow(level: "sm" | "md" = "sm") {
   if (Platform.OS === "web") {
     return {
       boxShadow:
-        level === "sm" ? "0 1px 3px rgba(28, 27, 23, 0.08)" : "0 4px 16px rgba(28, 27, 23, 0.12)",
+        level === "sm" ? "0 1px 3px rgba(37, 40, 36, 0.08)" : "0 4px 16px rgba(37, 40, 36, 0.12)",
     } as Record<string, string>;
   }
   return {
-    shadowColor: "#1C1B17",
+    shadowColor: colors.textPrimary,
     shadowOpacity: level === "sm" ? 0.06 : 0.12,
     shadowRadius: level === "sm" ? 4 : 12,
     shadowOffset: { width: 0, height: level === "sm" ? 1 : 4 },

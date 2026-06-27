@@ -19,6 +19,8 @@ interface DetailsGridProps {
   bathroom: MockBathroom;
 }
 
+type RowTone = "success" | "warning";
+
 function formatOpenHours(bathroom: MockBathroom): string {
   const hours = bathroom.open_hours;
   if (hours.is_24_hours) return "Open 24 hours";
@@ -30,6 +32,21 @@ function formatCost(bathroom: MockBathroom): string {
   const base = bathroom.cost_type ? COST_TYPE_LABELS[bathroom.cost_type] : "Cost unknown";
   if (bathroom.cost_amount) return `${base} · $${bathroom.cost_amount.toFixed(2)}`;
   return base;
+}
+
+// Purely presentational tiering of fields that already render on this
+// screen - palm green for "open"/"free", muted clay for anything gated -
+// no new data or behavior, just a color hint on the existing value.
+function costTone(bathroom: MockBathroom): RowTone | undefined {
+  if (bathroom.cost_type === "free") return "success";
+  if (bathroom.cost_type === "purchase_required" || bathroom.cost_type === "paid") return "warning";
+  return undefined;
+}
+
+function accessTone(bathroom: MockBathroom): RowTone | undefined {
+  if (bathroom.access_type === "public") return "success";
+  if (bathroom.access_type && bathroom.access_type !== "unknown") return "warning";
+  return undefined;
 }
 
 export function DetailsGrid({ bathroom }: DetailsGridProps) {
@@ -56,7 +73,13 @@ export function DetailsGrid({ bathroom }: DetailsGridProps) {
           value={bathroom.gender_category ? GENDER_CATEGORY_LABELS[bathroom.gender_category] : "Unknown"}
         />
         <DetailRow icon="time-outline" label="Hours" value={formatOpenHours(bathroom)} />
-        <DetailRow icon="cash-outline" label="Cost" value={formatCost(bathroom)} secondary={bathroom.purchase_note} />
+        <DetailRow
+          icon="cash-outline"
+          label="Cost"
+          value={formatCost(bathroom)}
+          secondary={bathroom.purchase_note}
+          tone={costTone(bathroom)}
+        />
         <DetailRow
           icon="key-outline"
           label="Access"
@@ -64,6 +87,7 @@ export function DetailsGrid({ bathroom }: DetailsGridProps) {
           secondary={
             bathroom.access_difficulty ? `Difficulty: ${ACCESS_DIFFICULTY_LABELS[bathroom.access_difficulty]}` : null
           }
+          tone={accessTone(bathroom)}
         />
         {bathroom.access_notes ? (
           <DetailRow icon="information-circle-outline" label="Access instructions" value={bathroom.access_notes} isLast />
@@ -84,23 +108,33 @@ export function DetailsGrid({ bathroom }: DetailsGridProps) {
       ) : null}
 
       {bathroom.last_verified_at ? (
-        <Text style={styles.verifiedText}>Last verified {formatRelativeTime(bathroom.last_verified_at)}</Text>
+        <View style={styles.verifiedBadge}>
+          <Ionicons name="checkmark-circle" size={13} color={colors.textPrimary} />
+          <Text style={styles.verifiedText}>Verified {formatRelativeTime(bathroom.last_verified_at)}</Text>
+        </View>
       ) : null}
     </View>
   );
 }
+
+const TONE_BACKGROUND: Record<RowTone, string> = {
+  success: colors.success,
+  warning: colors.warning,
+};
 
 function DetailRow({
   icon,
   label,
   value,
   secondary,
+  tone,
   isLast,
 }: {
   icon: ComponentProps<typeof Ionicons>["name"];
   label: string;
   value: string;
   secondary?: string | null;
+  tone?: RowTone;
   isLast?: boolean;
 }) {
   return (
@@ -108,7 +142,13 @@ function DetailRow({
       <Ionicons name={icon} size={18} color={colors.textSecondary} style={styles.rowIcon} />
       <View style={styles.rowTextBlock}>
         <Text style={styles.rowLabel}>{label}</Text>
-        <Text style={styles.rowValue}>{value}</Text>
+        {tone ? (
+          <View style={[styles.rowValuePill, { backgroundColor: TONE_BACKGROUND[tone] }]}>
+            <Text style={styles.rowValuePillText}>{value}</Text>
+          </View>
+        ) : (
+          <Text style={styles.rowValue}>{value}</Text>
+        )}
         {secondary ? <Text style={styles.rowSecondary}>{secondary}</Text> : null}
       </View>
     </View>
@@ -157,6 +197,18 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: fontWeight.medium,
   },
+  rowValuePill: {
+    alignSelf: "flex-start",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radii.full,
+    marginTop: 2,
+  },
+  rowValuePillText: {
+    fontSize: fontSize.sm,
+    color: colors.textPrimary,
+    fontWeight: fontWeight.medium,
+  },
   rowSecondary: {
     fontSize: fontSize.xs,
     color: colors.textSecondary,
@@ -175,7 +227,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   amenityChip: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.sand,
     paddingHorizontal: spacing.sm,
     paddingVertical: 6,
     borderRadius: radii.full,
@@ -183,10 +235,21 @@ const styles = StyleSheet.create({
   amenityChipText: {
     fontSize: fontSize.xs,
     fontWeight: fontWeight.medium,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
+  },
+  verifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 4,
+    backgroundColor: colors.successMuted,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radii.full,
   },
   verifiedText: {
     fontSize: fontSize.xs,
-    color: colors.textMuted,
+    fontWeight: fontWeight.medium,
+    color: colors.textPrimary,
   },
 });

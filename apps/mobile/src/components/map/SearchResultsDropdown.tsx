@@ -42,7 +42,9 @@ export function SearchResultsDropdown({ results, onSelect }: SearchResultsDropdo
                   <Ionicons name="star" size={11} color={colors.gold} />
                   <Text style={styles.scoreText}>{formatScore(bathroom.overall_score)}</Text>
                 </View>
-                <Text style={styles.distanceText}>{formatDistance(bathroom.distance_meters)}</Text>
+                <View style={styles.distanceBadge}>
+                  <Text style={styles.distanceText}>{formatDistance(bathroom.distance_meters)}</Text>
+                </View>
               </View>
             </TouchableOpacity>
           ))}
@@ -105,9 +107,16 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.semibold,
     color: colors.textPrimary,
   },
+  distanceBadge: {
+    backgroundColor: colors.skyMuted,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radii.full,
+  },
   distanceText: {
     fontSize: fontSize.xs,
-    color: colors.textMuted,
+    fontWeight: fontWeight.medium,
+    color: colors.textPrimary,
   },
   emptyState: {
     paddingHorizontal: spacing.md,

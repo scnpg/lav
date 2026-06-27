@@ -59,9 +59,7 @@ export function MockMapView({ bathrooms, selectedId, onSelectPin, onPressBackgro
             hitSlop={8}
           >
             <View style={[styles.pin, isSelected && styles.pinSelected]}>
-              <Text style={[styles.pinScore, isSelected && styles.pinScoreSelected]}>
-                {bathroom.overall_score.toFixed(1)}
-              </Text>
+              <Text style={styles.pinScore}>{bathroom.overall_score.toFixed(1)}</Text>
             </View>
           </Pressable>
         );
@@ -77,7 +75,7 @@ export function MockMapView({ bathrooms, selectedId, onSelectPin, onPressBackgro
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.accentMuted,
+    backgroundColor: colors.skyMuted,
     overflow: "hidden",
   },
   gridOverlay: {
@@ -113,21 +111,21 @@ const styles = StyleSheet.create({
     borderRadius: radii.full,
     backgroundColor: colors.surface,
     borderWidth: 2,
-    borderColor: colors.accent,
+    borderColor: colors.accentStrong,
     alignItems: "center",
     justifyContent: "center",
     ...cardShadow("sm"),
   },
+  // Selected pins fill with sky blue, not the lagoon teal used for
+  // buttons/chips - see the palette's map-specific usage rule. Text stays
+  // ink either way, both fills are light enough for it to read clearly.
   pinSelected: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.sky,
   },
   pinScore: {
     fontSize: fontSize.xs,
     fontWeight: fontWeight.bold,
-    color: colors.accent,
-  },
-  pinScoreSelected: {
-    color: colors.textOnAccent,
+    color: colors.textPrimary,
   },
   mockBadge: {
     position: "absolute",
@@ -139,7 +137,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.full,
   },
   mockBadgeText: {
-    color: colors.textOnAccent,
+    color: colors.textOnOverlay,
     fontSize: fontSize.xs,
     fontWeight: fontWeight.medium,
   },

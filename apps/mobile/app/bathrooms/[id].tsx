@@ -142,14 +142,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   tagChip: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.sand,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
     borderRadius: 999,
   },
   tagChipText: {
     fontSize: fontSize.xs,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
     fontWeight: fontWeight.medium,
   },
   notFoundContainer: {
@@ -176,6 +176,6 @@ const styles = StyleSheet.create({
   backLinkText: {
     fontSize: fontSize.base,
     fontWeight: fontWeight.semibold,
-    color: colors.accent,
+    color: colors.textPrimary,
   },
 });

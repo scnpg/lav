@@ -107,7 +107,7 @@ export default function MapScreen() {
           onPress={handleUseMyLocation}
           hitSlop={8}
         >
-          <Ionicons name="locate" size={20} color={colors.accent} />
+          <Ionicons name="locate" size={20} color={colors.accentStrong} />
         </Pressable>
       </View>
 

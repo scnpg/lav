@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.bold,
-    color: colors.accent,
+    color: colors.textPrimary,
   },
   cardHeaderRow: {
     flexDirection: "row",
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
   tipCard: {
     flexDirection: "row",
     gap: spacing.sm,
-    backgroundColor: colors.accentMuted,
+    backgroundColor: colors.sandMuted,
     borderRadius: radii.md,
     padding: spacing.md,
   },
@@ -191,14 +191,14 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   breakdownChip: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.sandMuted,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
     borderRadius: radii.full,
   },
   breakdownChipText: {
     fontSize: fontSize.xs,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
     fontWeight: fontWeight.medium,
   },
 });

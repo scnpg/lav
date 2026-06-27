@@ -31,7 +31,7 @@ export function ActionButtonsRow({ bathroomName }: ActionButtonsRowProps) {
         return (
           <Pressable key={action.key} style={styles.button} onPress={() => handlePress(action.label)} hitSlop={6}>
             <View style={[styles.iconCircle, isDestructive && styles.iconCircleDestructive]}>
-              <Ionicons name={action.icon} size={19} color={isDestructive ? colors.danger : colors.accent} />
+              <Ionicons name={action.icon} size={19} color={isDestructive ? colors.danger : colors.accentStrong} />
             </View>
             <Text style={styles.buttonLabel}>{action.label}</Text>
           </Pressable>

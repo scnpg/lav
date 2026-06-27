@@ -22,7 +22,7 @@ const styles = StyleSheet.create({
     marginTop: spacing["2xl"],
   },
   linkText: {
-    color: colors.accent,
+    color: colors.textPrimary,
     fontWeight: fontWeight.semibold,
   },
 });

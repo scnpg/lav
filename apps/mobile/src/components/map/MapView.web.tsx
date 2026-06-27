@@ -38,21 +38,25 @@ function createPinElement(): HTMLDivElement {
   el.style.height = "32px";
   el.style.borderRadius = "999px";
   el.style.backgroundColor = colors.surface;
-  el.style.border = `2px solid ${colors.accent}`;
+  el.style.border = `2px solid ${colors.accentStrong}`;
   el.style.display = "flex";
   el.style.alignItems = "center";
   el.style.justifyContent = "center";
   el.style.fontSize = "11px";
   el.style.fontWeight = "700";
-  el.style.color = colors.accent;
+  el.style.color = colors.textPrimary;
   el.style.cursor = "pointer";
-  el.style.boxShadow = "0 2px 4px rgba(28, 27, 23, 0.25)";
+  el.style.boxShadow = "0 2px 4px rgba(37, 40, 36, 0.25)";
   return el;
 }
 
+// Selected pins fill with sky blue (not the lagoon teal used for buttons/
+// chips elsewhere) - per the palette's map-specific usage rule. Text stays
+// ink either way: both the cream default and the sky-blue selected fill
+// are light enough that ink reads clearly on both.
 function applySelectedStyle(el: HTMLDivElement, isSelected: boolean) {
-  el.style.backgroundColor = isSelected ? colors.accent : colors.surface;
-  el.style.color = isSelected ? colors.textOnAccent : colors.accent;
+  el.style.backgroundColor = isSelected ? colors.sky : colors.surface;
+  el.style.color = colors.textPrimary;
 }
 
 // Real, interactive MapLibre GL JS map for web only - see MapView.native.tsx
@@ -169,7 +173,7 @@ export function MapView({ bathrooms, selectedId, onSelectPin, onPressBackground,
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.accentMuted,
+    backgroundColor: colors.skyMuted,
     overflow: "hidden",
   },
   devBadge: {
@@ -182,7 +186,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.full,
   },
   devBadgeText: {
-    color: colors.textOnAccent,
+    color: colors.textOnOverlay,
     fontSize: fontSize.xs,
     fontWeight: fontWeight.medium,
   },

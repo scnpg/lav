@@ -38,7 +38,10 @@ export function BathroomBottomCard({ bathroom, onClose }: BathroomBottomCardProp
             <Ionicons name="star" size={12} color={colors.gold} />
             <Text style={styles.scoreText}>{formatScore(bathroom.overall_score)}</Text>
           </View>
-          <Text style={styles.metaText}>{formatDistance(bathroom.distance_meters)}</Text>
+          <View style={styles.distanceBadge}>
+            <Ionicons name="navigate-outline" size={11} color={colors.textPrimary} />
+            <Text style={styles.distanceText}>{formatDistance(bathroom.distance_meters)}</Text>
+          </View>
           {bathroom.access_type ? (
             <Text style={styles.metaText}>{ACCESS_TYPE_LABELS[bathroom.access_type]}</Text>
           ) : null}
@@ -57,7 +60,7 @@ export function BathroomBottomCard({ bathroom, onClose }: BathroomBottomCardProp
 
         <View style={styles.detailsLinkRow}>
           <Text style={styles.detailsLinkText}>View details</Text>
-          <Ionicons name="chevron-forward" size={14} color={colors.accent} />
+          <Ionicons name="chevron-forward" size={14} color={colors.textPrimary} />
         </View>
       </Pressable>
     </View>
@@ -112,6 +115,20 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textSecondary,
   },
+  distanceBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: colors.skyMuted,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radii.full,
+  },
+  distanceText: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+    color: colors.textPrimary,
+  },
   tagRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -119,14 +136,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   tagChip: {
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.sand,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
     borderRadius: radii.full,
   },
   tagText: {
     fontSize: fontSize.xs,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
     fontWeight: fontWeight.medium,
   },
   detailsLinkRow: {
@@ -138,6 +155,6 @@ const styles = StyleSheet.create({
   detailsLinkText: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.semibold,
-    color: colors.accent,
+    color: colors.textPrimary,
   },
 });

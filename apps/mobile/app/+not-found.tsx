@@ -41,7 +41,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   linkText: {
-    color: colors.accent,
+    color: colors.textPrimary,
     fontWeight: fontWeight.semibold,
   },
 });
