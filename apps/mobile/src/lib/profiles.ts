@@ -1,10 +1,49 @@
 import { supabase } from "./supabase";
+import type { Profile } from "../types/database";
 
 export interface ProfileLite {
   id: string;
   username: string | null;
   display_name: string | null;
   avatar_url: string | null;
+  level: number;
+}
+
+/** Read-only lookup for another user's public profile (cross-profile navigation). */
+export async function getPublicProfile(userId: string): Promise<Profile | null> {
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+/**
+ * Uploads a locally-picked photo (expo-image-picker's asset.uri - a file://
+ * URI on native, blob:/data: on web) as the caller's avatar and points
+ * profiles.avatar_url at it. Fixed filename (not one-per-upload) with
+ * upsert: true, so re-uploading just replaces the previous photo instead of
+ * accumulating orphaned files in the bucket - there's only ever one current
+ * avatar per user, unlike bathroom_photos' full history/moderation lifecycle.
+ * See supabase/migrations/0014_onboarding_and_avatars.sql for the bucket +
+ * owner-only-write policies this relies on.
+ */
+export async function uploadAvatar(userId: string, localUri: string): Promise<string> {
+  const response = await fetch(localUri);
+  const blob = await response.blob();
+  const path = `${userId}/avatar.jpg`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("avatars")
+    .upload(path, blob, { contentType: "image/jpeg", upsert: true });
+  if (uploadError) throw new Error(uploadError.message);
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from("avatars").getPublicUrl(path);
+
+  const { error: updateError } = await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("id", userId);
+  if (updateError) throw new Error(updateError.message);
+
+  return publicUrl;
 }
 
 /**
@@ -24,7 +63,7 @@ export async function attachAuthors<T extends { user_id: string | null }>(
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, username, display_name, avatar_url")
+    .select("id, username, display_name, avatar_url, level")
     .in("id", ids);
   if (error) throw new Error(error.message);
 

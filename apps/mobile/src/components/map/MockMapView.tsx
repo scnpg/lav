@@ -11,6 +11,12 @@ interface MockMapViewProps {
   // Accepted for prop-shape compatibility with MapView.web.tsx (this mock
   // layout has no camera to move, so it's a no-op here).
   focusRequest?: { id: string; token: number } | null;
+  userLocation?: { latitude: number; longitude: number } | null;
+  locateMeToken?: number | null;
+  fitBoundsRequest?: number | null;
+  onSelectGroup?: (bathroomIds: string[]) => void;
+  onRegionChangeComplete?: (bounds: { west: number; south: number; east: number; north: number }) => void;
+  flyToRequest?: { latitude: number; longitude: number; token: number } | null;
 }
 
 /**

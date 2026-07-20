@@ -15,6 +15,9 @@ interface AuthContextValue {
   signUpWithPassword: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  updateDisplayName: (displayName: string) => Promise<{ error: string | null }>;
+  updateUsername: (username: string) => Promise<{ error: string | null }>;
+  completeOnboarding: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -25,7 +28,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const loadProfile = useCallback(async (userId: string) => {
-    const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
+    if (error?.code === "PGRST116") {
+      // No profiles row for this session's user - the account was deleted
+      // (or a stale session survived in storage past a `delete from
+      // auth.users`). Sign out so the rest of the app treats this as
+      // logged-out - session going null re-triggers AuthGatedStack's
+      // redirect - instead of every screen rendering with profile stuck
+      // at null forever.
+      await supabase.auth.signOut();
+      return;
+    }
     setProfile(data ?? null);
   }, []);
 
@@ -73,6 +86,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (session?.user) await loadProfile(session.user.id);
   }, [session, loadProfile]);
 
+  const updateDisplayName = useCallback(
+    async (displayName: string) => {
+      if (!session?.user) return { error: "Not signed in" };
+      const { error } = await supabase
+        .from("profiles")
+        .update({ display_name: displayName })
+        .eq("id", session.user.id);
+      if (error) return { error: error.message };
+      await loadProfile(session.user.id);
+      return { error: null };
+    },
+    [session, loadProfile]
+  );
+
+  const updateUsername = useCallback(
+    async (username: string) => {
+      if (!session?.user) return { error: "Not signed in" };
+      const { error } = await supabase
+        .from("profiles")
+        .update({ username: username.toLowerCase() })
+        .eq("id", session.user.id);
+      if (error) {
+        // unique_violation - profiles.username has a unique constraint.
+        if (error.code === "23505") return { error: "That username is taken." };
+        return { error: error.message };
+      }
+      await loadProfile(session.user.id);
+      return { error: null };
+    },
+    [session, loadProfile]
+  );
+
+  const completeOnboarding = useCallback(async () => {
+    if (!session?.user) return;
+    await supabase.from("profiles").update({ onboarding_completed: true }).eq("id", session.user.id);
+    await loadProfile(session.user.id);
+  }, [session, loadProfile]);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
@@ -84,8 +135,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUpWithPassword,
       signOut,
       refreshProfile,
+      updateDisplayName,
+      updateUsername,
+      completeOnboarding,
     }),
-    [session, profile, loading, signInWithPassword, signUpWithPassword, signOut, refreshProfile]
+    [
+      session,
+      profile,
+      loading,
+      signInWithPassword,
+      signUpWithPassword,
+      signOut,
+      refreshProfile,
+      updateDisplayName,
+      updateUsername,
+      completeOnboarding,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -10,25 +10,25 @@ import {
   GENDER_CATEGORY_LABELS,
   TOILET_TYPE_LABELS,
 } from "../../constants/enumLabels";
-import type { MockBathroom } from "../../features/bathrooms/mockData";
+import type { BathroomPublic } from "../../types/database";
 import { formatRelativeTime } from "../../lib/format";
 import { colors, fontSize, fontWeight, radii, spacing } from "../../theme";
 import type { AmenityKey } from "../../types/enums";
 
 interface DetailsGridProps {
-  bathroom: MockBathroom;
+  bathroom: BathroomPublic;
 }
 
 type RowTone = "success" | "warning";
 
-function formatOpenHours(bathroom: MockBathroom): string {
+function formatOpenHours(bathroom: BathroomPublic): string {
   const hours = bathroom.open_hours;
   if (hours.is_24_hours) return "Open 24 hours";
   if (hours.open && hours.close) return `${hours.open} – ${hours.close}`;
   return "Hours unknown";
 }
 
-function formatCost(bathroom: MockBathroom): string {
+function formatCost(bathroom: BathroomPublic): string {
   const base = bathroom.cost_type ? COST_TYPE_LABELS[bathroom.cost_type] : "Cost unknown";
   if (bathroom.cost_amount) return `${base} · $${bathroom.cost_amount.toFixed(2)}`;
   return base;
@@ -37,13 +37,13 @@ function formatCost(bathroom: MockBathroom): string {
 // Purely presentational tiering of fields that already render on this
 // screen - palm green for "open"/"free", muted clay for anything gated -
 // no new data or behavior, just a color hint on the existing value.
-function costTone(bathroom: MockBathroom): RowTone | undefined {
+function costTone(bathroom: BathroomPublic): RowTone | undefined {
   if (bathroom.cost_type === "free") return "success";
   if (bathroom.cost_type === "purchase_required" || bathroom.cost_type === "paid") return "warning";
   return undefined;
 }
 
-function accessTone(bathroom: MockBathroom): RowTone | undefined {
+function accessTone(bathroom: BathroomPublic): RowTone | undefined {
   if (bathroom.access_type === "public") return "success";
   if (bathroom.access_type && bathroom.access_type !== "unknown") return "warning";
   return undefined;
@@ -60,8 +60,6 @@ export function DetailsGrid({ bathroom }: DetailsGridProps) {
       <Text style={styles.sectionTitle}>Details</Text>
 
       <View style={styles.card}>
-        <DetailRow icon="layers-outline" label="Stalls" value={String(bathroom.stallCount)} />
-        <DetailRow icon="man-outline" label="Urinals" value={String(bathroom.urinalCount)} />
         <DetailRow
           icon="water-outline"
           label="Toilet type"

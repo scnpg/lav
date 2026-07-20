@@ -22,7 +22,7 @@ major_version = 15
 enabled = true
 # Spec asks for a supabase/seed/ directory (rather than the CLI default of
 # a single supabase/seed.sql) - point the seeder at it explicitly.
-sql_paths = ["./seed/seed.sql"]
+sql_paths = ["./seed/seed.sql", "./seed/nyc_taiwan_bathrooms.sql"]
 
 [realtime]
 enabled = true
@@ -31,7 +31,7 @@ enabled = true
 enabled = true
 port = 54323
 
-[inbucket]
+[local_smtp]
 enabled = true
 port = 54324
 
@@ -44,12 +44,15 @@ enabled = true
 site_url = "http://localhost:8081"
 additional_redirect_urls = ["exp://localhost:8081", "exp://127.0.0.1:8081"]
 jwt_expiry = 3600
-enable_signup = true
-enable_confirmations = false
+
 
 [auth.email]
 enable_signup = true
-enable_confirmations = false
+# On for real end-to-end signup testing - a new account needs to click the
+# confirmation link (captured locally by [local_smtp]/Mailpit at
+# http://127.0.0.1:54324) before signInWithPassword succeeds. See
+# app/auth/sign-up.tsx's awaitingConfirmation state for the UI this drives.
+enable_confirmations = true
 
 [functions.moderate-photo]
 # Caller must be a signed-in user (the mobile app's anon-key + user JWT) -

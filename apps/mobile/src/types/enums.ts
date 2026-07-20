@@ -15,6 +15,8 @@ export const ACCESS_TYPES = [
   "hotel_guest_only",
   "event_only",
   "private_rare",
+  "id_required",
+  "student_faculty_only",
   "unknown",
 ] as const;
 export type AccessType = (typeof ACCESS_TYPES)[number];

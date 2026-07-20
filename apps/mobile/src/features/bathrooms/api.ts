@@ -17,7 +17,7 @@ import type {
 // 0006_rls.sql, so including them would make the whole query fail with a
 // permission error for every non-admin caller. Admins read them separately
 // via getBathroomPrivateFields() below.
-const BATHROOM_PUBLIC_COLUMNS = `
+export const BATHROOM_PUBLIC_COLUMNS = `
   id, name, venue_name, description, address, city, region, country, floor,
   latitude, longitude, status, access_type, purchase_required, purchase_note,
   access_difficulty, access_notes, access_code_public_allowed, cost_type, cost_amount,
@@ -31,6 +31,58 @@ function unwrap<T>(result: { data: T | null; error: { message: string } | null }
   if (result.error) throw new Error(result.error.message);
   if (result.data === null) throw new Error("Not found");
   return result.data;
+}
+
+export interface MapBounds {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
+
+// Hard cap, not a page size - with 349k+ bathrooms imported (OpenStreetMap,
+// global), a wide viewport can match tens of thousands of rows. The old
+// version of this function paginated through *all* of them, which is
+// exactly what was causing the map to lag: panning out even a little could
+// trigger dozens of sequential 1000-row fetches and a supercluster rebuild
+// over an ever-growing array. Capping at a flat 300 keeps every fetch (and
+// the clustering pass on the result) fast regardless of how dense the
+// viewport is - the map screen also refuses to fetch at all once the
+// viewport is wider than roughly a city (see isViewportTooWide in
+// app/(tabs)/index.tsx), so this limit is a backstop, not the primary
+// defense against a huge result set.
+const BOUNDS_QUERY_LIMIT = 300;
+
+// The map's data source: queries only the current viewport every time the
+// user stops panning/zooming (see MapView's onRegionChangeComplete),
+// filtered on the plain latitude/longitude columns (bathrooms_latitude_idx /
+// bathrooms_longitude_idx, 0009_bbox_indexes.sql) rather than the `location`
+// geography column, which is indexed for the radius-search RPC below, not a
+// rectangular bounds filter.
+export async function getBathroomsInBounds(bounds: MapBounds): Promise<BathroomPublic[]> {
+  let query = supabase
+    .from("bathrooms")
+    .select(BATHROOM_PUBLIC_COLUMNS)
+    .eq("status", "verified")
+    .gte("latitude", bounds.south)
+    .lte("latitude", bounds.north);
+
+  // A viewport panned across the antimeridian (e.g. dragging from Asia
+  // toward the Americas) reports west > east - longitude.gte(west) AND
+  // longitude.lte(east) would then match nothing, since no value is both.
+  // The correct condition becomes an OR: east of `west` OR west of `east`.
+  query =
+    bounds.west <= bounds.east
+      ? query.gte("longitude", bounds.west).lte("longitude", bounds.east)
+      : query.or(`longitude.gte.${bounds.west},longitude.lte.${bounds.east}`);
+
+  // No ORDER BY on purpose: sorting by anything other than the indexed
+  // latitude/longitude columns would force Postgres to scan and sort every
+  // matching row before applying the limit, undoing the point of capping
+  // it. Whatever 300 rows come back fastest is good enough for a map pin.
+  const { data, error } = await query.limit(BOUNDS_QUERY_LIMIT);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as BathroomPublic[];
 }
 
 export async function getNearbyBathrooms(
@@ -131,6 +183,38 @@ export async function submitBathroom(input: SubmitBathroomInput): Promise<Bathro
   return unwrap(result) as unknown as BathroomPublic;
 }
 
+// The "fill in missing data" patch shape for the Edit Info form - deliberately
+// narrower than AdminBathroomPatch below (no latitude/longitude/status/etc.).
+// This isn't just a UI choice: 0012_community_bathroom_edits.sql's
+// guard_bathroom_update() trigger silently reverts those columns for any
+// non-admin caller, so a wider type here would let a caller believe a write
+// succeeded when the database quietly discarded it.
+export interface BathroomFillMissingPatch {
+  name?: string;
+  venue_name?: string | null;
+  description?: string | null;
+  floor?: string | null;
+  access_type?: AccessType | null;
+  access_notes?: string | null;
+  cost_type?: CostType | null;
+  gender_category?: GenderCategory | null;
+  toilet_type?: ToiletType | null;
+  amenities?: AmenitiesMap;
+}
+
+/**
+ * Community edit: any signed-in user filling in missing fields on a
+ * verified bathroom (or their own still-pending submission) - never an
+ * admin-only action. RLS (bathrooms_update_authenticated_fill_missing) and
+ * the guard_bathroom_update trigger enforce the actual boundaries; this
+ * function's narrower patch type just keeps the client from trying to send
+ * fields that would be silently dropped.
+ */
+export async function updateBathroomDetails(id: string, patch: BathroomFillMissingPatch): Promise<BathroomPublic> {
+  const result = await supabase.from("bathrooms").update(patch).eq("id", id).select(BATHROOM_PUBLIC_COLUMNS).single();
+  return unwrap(result) as unknown as BathroomPublic;
+}
+
 export async function updateBathroomScores(bathroomId: string): Promise<void> {
   const { error } = await supabase.rpc("update_bathroom_scores", { target_bathroom_id: bathroomId });
   if (error) throw new Error(error.message);
@@ -159,6 +243,25 @@ export async function unsaveBathroom(bathroomId: string, userId: string): Promis
     .eq("bathroom_id", bathroomId)
     .eq("user_id", userId);
   if (error) throw new Error(error.message);
+}
+
+/**
+ * Flips the bookmark - thin wrapper over saveBathroom/unsaveBathroom for
+ * callers that already know the current state (e.g. a heart icon toggling
+ * off its own last-known value) and don't want to re-fetch isBathroomSaved
+ * just to decide which one to call. Returns the new saved state.
+ */
+export async function toggleBookmark(
+  bathroomId: string,
+  userId: string,
+  currentlySaved: boolean
+): Promise<boolean> {
+  if (currentlySaved) {
+    await unsaveBathroom(bathroomId, userId);
+    return false;
+  }
+  await saveBathroom(bathroomId, userId);
+  return true;
 }
 
 export async function getSavedBathrooms(userId: string): Promise<BathroomPublic[]> {

@@ -26,6 +26,8 @@ export const ACCESS_TYPE_LABELS: Record<AccessType, string> = {
   hotel_guest_only: "Hotel guests only",
   event_only: "Event access only",
   private_rare: "Private / members only",
+  id_required: "ID required",
+  student_faculty_only: "Students & faculty only",
   unknown: "Access unknown",
 };
 

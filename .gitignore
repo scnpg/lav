@@ -30,6 +30,7 @@ supabase/functions/.env
 # Supabase local dev
 supabase/.branches/
 supabase/.temp/
+supabase/snippets/
 
 # Logs
 npm-debug.log*
@@ -42,6 +43,7 @@ pnpm-debug.log*
 .vscode/*
 !.vscode/extensions.json
 .idea/
+.claude/
 .DS_Store
 Thumbs.db
 

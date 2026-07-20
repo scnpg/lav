@@ -19,13 +19,16 @@ export function SearchResultsDropdown({ results, onSelect }: SearchResultsDropdo
           <Text style={styles.emptyText}>No bathrooms found</Text>
         </View>
       ) : (
-        <ScrollView style={styles.list} keyboardShouldPersistTaps="handled">
+        <ScrollView style={styles.list} keyboardShouldPersistTaps="handled" accessibilityRole="list">
           {results.map((bathroom) => (
             <TouchableOpacity
               key={bathroom.id}
               style={styles.row}
               onPress={() => onSelect(bathroom.id)}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`${bathroom.name}, ${formatDistance(bathroom.distance_meters)} away, rated ${formatScore(bathroom.overall_score)}`}
+              accessibilityHint="Centers the map on this bathroom"
             >
               <View style={styles.rowMain}>
                 <Text style={styles.name} numberOfLines={1}>

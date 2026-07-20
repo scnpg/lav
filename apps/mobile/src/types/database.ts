@@ -27,6 +27,10 @@ export interface Profile {
   bio: string | null;
   role: ProfileRole;
   trust_score: number;
+  points: number;
+  /** Generated column (see 0020_gamification_points.sql) - always derived from points, never written directly. */
+  level: number;
+  onboarding_completed: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -197,6 +201,87 @@ export interface ModerationEvent {
   created_at: string;
 }
 
+// The 0.0-10.0 "Beli for bathrooms" rating engine - see
+// supabase/migrations/0016_bathroom_reviews.sql for why this is a separate
+// table from the older 1-5 scale `reviews` above.
+export interface BathroomReview {
+  id: string;
+  user_id: string;
+  bathroom_id: string;
+  overall_rating: number;
+  cleanliness_score: number | null;
+  smell_score: number | null;
+  ambience_score: number | null;
+  privacy_score: number | null;
+  review_text: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BathroomReviewStats {
+  review_count: number;
+  avg_overall: number | null;
+  avg_cleanliness: number | null;
+  avg_smell: number | null;
+  avg_ambience: number | null;
+  avg_privacy: number | null;
+}
+
+export interface BathroomImage {
+  id: string;
+  bathroom_id: string;
+  review_id: string | null;
+  user_id: string;
+  storage_path: string;
+  public_url: string;
+  created_at: string;
+}
+
+// Crowd-sourced consensus model (0021_consensus_suggestions.sql). field_name
+// is 'name' or an AmenityKey (src/types/enums.ts); suggested_value is the
+// literal name string, or 'true'/'false' for an amenity flag. No DB-level
+// enum constraint on field_name - validated client-side, same convention as
+// bathrooms.tags/amenities.
+export interface BathroomSuggestion {
+  id: string;
+  bathroom_id: string;
+  user_id: string;
+  field_name: string;
+  suggested_value: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// One row per pair (0023_social_and_submissions.sql) - created by user_id
+// as 'requested', flipped to 'accepted' by an UPDATE from friend_id. A
+// friendship is "mine" if I'm on either side, so most queries check both
+// user_id = me and friend_id = me rather than assuming a direction.
+export interface Friendship {
+  id: string;
+  user_id: string;
+  friend_id: string;
+  status: "requested" | "accepted";
+  created_at: string;
+}
+
+// The moderation queue (0023_social_and_submissions.sql) - separate from the
+// existing direct-write paths (submitBathroom/updateBathroomDetails).
+// bathroom_id null + name/latitude/longitude set = a brand new pin proposal;
+// bathroom_id set = a proposed amendment to that existing bathroom.
+export interface BathroomSubmission {
+  id: string;
+  user_id: string;
+  bathroom_id: string | null;
+  name: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  details: Record<string, unknown>;
+  status: "pending" | "approved" | "rejected";
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+}
+
 // ---------------------------------------------------------------------------
 // supabase-js Database generic. Relationships is always [] - the app
 // doesn't use PostgREST embedded resource expansion (every join here is a
@@ -274,6 +359,29 @@ export interface Database {
         ModerationEvent,
         Pick<ModerationEvent, "action"> & Partial<Omit<ModerationEvent, "action">>
       >;
+      bathroom_reviews: TableDef<
+        BathroomReview,
+        Pick<BathroomReview, "user_id" | "bathroom_id" | "overall_rating"> &
+          Partial<Omit<BathroomReview, "user_id" | "bathroom_id" | "overall_rating">>
+      >;
+      bathroom_images: TableDef<
+        BathroomImage,
+        Pick<BathroomImage, "bathroom_id" | "user_id" | "storage_path" | "public_url"> &
+          Partial<Omit<BathroomImage, "bathroom_id" | "user_id" | "storage_path" | "public_url">>
+      >;
+      bathroom_suggestions: TableDef<
+        BathroomSuggestion,
+        Pick<BathroomSuggestion, "bathroom_id" | "user_id" | "field_name" | "suggested_value"> &
+          Partial<Omit<BathroomSuggestion, "bathroom_id" | "user_id" | "field_name" | "suggested_value">>
+      >;
+      friendships: TableDef<
+        Friendship,
+        Pick<Friendship, "user_id" | "friend_id"> & Partial<Omit<Friendship, "user_id" | "friend_id">>
+      >;
+      bathroom_submissions: TableDef<
+        BathroomSubmission,
+        Pick<BathroomSubmission, "user_id"> & Partial<Omit<BathroomSubmission, "user_id">>
+      >;
     };
     Views: Record<string, never>;
     Functions: {
@@ -300,6 +408,10 @@ export interface Database {
       is_admin: {
         Args: { check_user_id?: string };
         Returns: boolean;
+      };
+      get_bathroom_review_stats: {
+        Args: { target_bathroom_id: string };
+        Returns: BathroomReviewStats[];
       };
     };
   };

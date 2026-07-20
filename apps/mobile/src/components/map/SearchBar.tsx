@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { StyleSheet, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, TextInput, View } from "react-native";
 
 import { colors, fontSize, radii, spacing } from "../../theme";
 
@@ -11,7 +11,7 @@ interface SearchBarProps {
 
 export function SearchBar({ value, onChangeText, placeholder = "Search bathrooms, venues, neighborhoods" }: SearchBarProps) {
   return (
-    <View style={styles.container}>
+    <View style={styles.container} accessibilityRole="search">
       <Ionicons name="search" size={18} color={colors.textMuted} />
       <TextInput
         value={value}
@@ -22,7 +22,19 @@ export function SearchBar({ value, onChangeText, placeholder = "Search bathrooms
         autoCorrect={false}
         autoCapitalize="none"
         returnKeyType="search"
+        accessibilityLabel="Search bathrooms by name, venue, or neighborhood"
+        accessibilityHint="Results update the map and a list below as you type"
       />
+      {value.length > 0 ? (
+        <Pressable
+          onPress={() => onChangeText("")}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Clear search"
+        >
+          <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }

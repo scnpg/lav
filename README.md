@@ -303,9 +303,12 @@ application code (see `0006_rls.sql` and the `sync_photo_public_flag` trigger in
   `authenticated` Postgres role in `0006_rls.sql` — even a buggy `select *` from any non-admin
   client fails with a permission error rather than leaking them. Admins read them only through the
   dedicated `admin_get_bathroom_private_fields()` RPC, which checks `is_admin()` itself.
-- No table or RPC ever stores or returns a user's live location — `useLocationOnDemand` (once
-  wired into a screen) only requests location when the user explicitly taps a button, and the
-  coordinates never leave React state into storage or the database.
+- No table or RPC ever stores or returns a user's live location. Two client-only hooks read
+  device location, neither writes it to storage or the database: `useLocationOnDemand` (one-shot,
+  only on an explicit user tap - meant for the submit flow's "use my current location") and
+  `useLiveLocation` (the Map tab, Phase 2 - requests foreground permission on mount and keeps a
+  live-updating position via `watchPositionAsync` for as long as the screen is mounted, shown only
+  as a dot on the user's own map).
 - Every table has Row Level Security enabled (`0006_rls.sql`); there is no anon-role access
   anywhere — every read/write requires a signed-in user.
 - Photos are private (quarantine bucket) until an admin approves them; see "Moderation setup"
