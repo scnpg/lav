@@ -2,16 +2,22 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ArabesqueDivider } from "../../src/components/ArabesqueDivider";
+import { ArabesqueLoader } from "../../src/components/ArabesqueLoader";
+import { PressableScale } from "../../src/components/PressableScale";
 import { Toast } from "../../src/components/Toast";
 import { ChipSelectField } from "../../src/components/bathroom/EditableFieldControls";
 import { PinPickerMap } from "../../src/components/map/PinPickerMap";
+import { SearchBar } from "../../src/components/map/SearchBar";
+import { SearchResultsDropdown } from "../../src/components/map/SearchResultsDropdown";
 import { ALL_AMENITIES, AMENITY_LABELS } from "../../src/constants/amenities";
-import { ACCESS_TYPE_LABELS } from "../../src/constants/enumLabels";
+import { ACCESS_TYPE_LABELS, COST_TYPE_LABELS, GENDER_CATEGORY_LABELS, TOILET_TYPE_LABELS } from "../../src/constants/enumLabels";
 import { getBathroomById } from "../../src/features/bathrooms/api";
+import { searchPlaces, type PlaceResult } from "../../src/features/places/search";
 import {
   submitBathroomAmendment,
   submitNewBathroom,
@@ -22,9 +28,23 @@ import { useAuth } from "../../src/lib/auth";
 import { DEFAULT_MAP_CENTER } from "../../src/lib/mapStyle";
 import { colors, fontSize, fontWeight, radii, spacing } from "../../src/theme";
 import type { BathroomPublic } from "../../src/types/database";
-import { ACCESS_TYPES, type AccessType, type AmenitiesMap, type AmenityKey } from "../../src/types/enums";
+import {
+  ACCESS_TYPES,
+  COST_TYPES,
+  GENDER_CATEGORIES,
+  TOILET_TYPES,
+  type AccessType,
+  type AmenitiesMap,
+  type AmenityKey,
+  type CostType,
+  type GenderCategory,
+  type ToiletType,
+} from "../../src/types/enums";
 
 const ACCESS_TYPE_OPTIONS = ACCESS_TYPES.map((value) => ({ value, label: ACCESS_TYPE_LABELS[value] }));
+const COST_TYPE_OPTIONS = COST_TYPES.map((value) => ({ value, label: COST_TYPE_LABELS[value] }));
+const GENDER_CATEGORY_OPTIONS = GENDER_CATEGORIES.map((value) => ({ value, label: GENDER_CATEGORY_LABELS[value] }));
+const TOILET_TYPE_OPTIONS = TOILET_TYPES.map((value) => ({ value, label: TOILET_TYPE_LABELS[value] }));
 const MAX_PHOTOS = 6;
 
 // The map-pin submission wizard - a new pin (pan-to-position under a fixed
@@ -46,21 +66,96 @@ export default function SubmitBathroomScreen() {
   const [existingBathroom, setExistingBathroom] = useState<BathroomPublic | null>(null);
   const [loadingExisting, setLoadingExisting] = useState(isAmendment);
   const [center, setCenter] = useState(DEFAULT_MAP_CENTER);
+  const [recenterRequest, setRecenterRequest] = useState<{ latitude: number; longitude: number; token: number } | null>(
+    null
+  );
   const [name, setName] = useState("");
   const [amenities, setAmenities] = useState<AmenitiesMap>({});
   const [accessType, setAccessType] = useState<AccessType | null>(null);
+  const [costType, setCostType] = useState<CostType | null>(null);
+  const [genderCategory, setGenderCategory] = useState<GenderCategory | null>(null);
+  const [toiletType, setToiletType] = useState<ToiletType | null>(null);
   const [photoUris, setPhotoUris] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
 
-  // New-pin mode: recenter on the user's live GPS fix the moment it arrives
-  // (starts at DEFAULT_MAP_CENTER until then). Amendment mode ignores this -
-  // the existing bathroom's own location always wins, set by the effect below.
+  const [placeQuery, setPlaceQuery] = useState("");
+  const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
+  const [placesLoading, setPlacesLoading] = useState(false);
+  const trimmedPlaceQuery = placeQuery.trim();
+  const isSearchingPlaces = trimmedPlaceQuery.length > 0;
+
+  // New-pin mode: recenter on the user's live GPS fix exactly once, the
+  // moment it first arrives (starts at DEFAULT_MAP_CENTER until then).
+  // Deliberately a ref, not a dependency-driven effect that fires on every
+  // update - useLiveLocation keeps watching position continuously, and
+  // recentering on every subsequent fix would silently overwrite the pin
+  // the moment a new GPS reading arrived, discarding wherever the user had
+  // just dragged it to (this is exactly what happened to a real submission -
+  // taking a few seconds to fill in the name/amenities was enough time for a
+  // fresh GPS fix to yank the pin back to the submitter's current location).
+  // Same pattern as app/(tabs)/index.tsx's hasAutoCenteredRef. Amendment mode
+  // ignores this entirely - the existing bathroom's own location always
+  // wins instead, set by the effect below.
+  const hasAutoCenteredRef = useRef(false);
   useEffect(() => {
-    if (!isAmendment && userLocation) setCenter(userLocation);
+    if (!isAmendment && userLocation && !hasAutoCenteredRef.current) {
+      hasAutoCenteredRef.current = true;
+      setCenter(userLocation);
+      // PinPickerMap's underlying MapLibre camera only reads `initialCenter`
+      // once at construction (see that component's own comment) - without
+      // this, the state above updates but the map visually stays parked on
+      // DEFAULT_MAP_CENTER (Washington DC) forever. This token-based request
+      // is the imperative nudge that actually moves the camera.
+      setRecenterRequest({ ...userLocation, token: Date.now() });
+    }
   }, [isAmendment, userLocation]);
+
+  // Same debounced Nominatim lookup + AbortController cancellation as the
+  // map screen's own search (src/features/places/search.ts) - lets someone
+  // find a landmark/street/business by name instead of hunting for it by eye
+  // to position a new pin. Amendment mode doesn't render the search bar at
+  // all (see below) since that pin's location is locked to the existing
+  // bathroom's, so this effect is scoped out of that mode entirely.
+  useEffect(() => {
+    if (isAmendment || !isSearchingPlaces) {
+      setPlaceResults([]);
+      setPlacesLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setPlacesLoading(true);
+    const timer = setTimeout(() => {
+      searchPlaces(trimmedPlaceQuery, controller.signal)
+        .then((results) => {
+          setPlaceResults(results);
+          setPlacesLoading(false);
+        })
+        .catch((err) => {
+          if (err instanceof Error && err.name === "AbortError") return;
+          setPlaceResults([]);
+          setPlacesLoading(false);
+        });
+    }, 400);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [isAmendment, isSearchingPlaces, trimmedPlaceQuery]);
+
+  // Flies the pin to the chosen place and, if the name field is still empty,
+  // prefills it with the place's label - a plain business/landmark name
+  // (e.g. "Blue Bottle Coffee") is usually exactly what belongs there,
+  // saving a retype for the common "I searched for the venue I'm at" case.
+  // Never overwrites a name the user already typed.
+  function handleSelectPlace(place: PlaceResult) {
+    setPlaceQuery("");
+    setCenter({ latitude: place.latitude, longitude: place.longitude });
+    setRecenterRequest({ latitude: place.latitude, longitude: place.longitude, token: Date.now() });
+    setName((prev) => (prev.trim() ? prev : place.label));
+  }
 
   useEffect(() => {
     if (!isAmendment || !bathroomId) return;
@@ -72,6 +167,9 @@ export default function SubmitBathroomScreen() {
         setCenter({ latitude: bathroom.latitude, longitude: bathroom.longitude });
         setName(bathroom.name);
         setAccessType(bathroom.access_type);
+        setCostType(bathroom.cost_type);
+        setGenderCategory(bathroom.gender_category);
+        setToiletType(bathroom.toilet_type);
       }
       setLoadingExisting(false);
     });
@@ -84,11 +182,11 @@ export default function SubmitBathroomScreen() {
     setAmenities((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
-  // Reached via a tab redirect (app/(tabs)/submit.tsx uses <Redirect>, which
-  // replaces rather than pushes) as well as a normal push from the map FAB
-  // or a bathroom's "Suggest edit" - only the push case leaves a screen to
-  // go back to. Falls back to the map tab instead of letting
-  // router.back() throw "GO_BACK was not handled by any navigator".
+  // Reached via a push from the map FAB or a bathroom's "Suggest edit" -
+  // both leave a screen to go back to, but falls back to the map tab
+  // instead of letting router.back() throw "GO_BACK was not handled by any
+  // navigator" on the off chance this is ever opened with no back-stack
+  // (e.g. a deep link straight to this route).
   function handleBack() {
     if (router.canGoBack()) {
       router.back();
@@ -139,6 +237,9 @@ export default function SubmitBathroomScreen() {
           name: name.trim() && name.trim() !== existingBathroom?.name ? name.trim() : undefined,
           amenities,
           accessType: accessType !== (existingBathroom?.access_type ?? null) ? accessType : undefined,
+          costType: costType !== (existingBathroom?.cost_type ?? null) ? costType : undefined,
+          genderCategory: genderCategory !== (existingBathroom?.gender_category ?? null) ? genderCategory : undefined,
+          toiletType: toiletType !== (existingBathroom?.toilet_type ?? null) ? toiletType : undefined,
           photoUrls,
         });
       } else {
@@ -149,6 +250,9 @@ export default function SubmitBathroomScreen() {
           longitude: center.longitude,
           amenities,
           accessType,
+          costType,
+          genderCategory,
+          toiletType,
           photoUrls,
         });
       }
@@ -175,7 +279,7 @@ export default function SubmitBathroomScreen() {
   if (loadingExisting) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator color={colors.accentStrong} />
+        <ArabesqueLoader size={40} color={colors.accentStrong} />
       </View>
     );
   }
@@ -189,9 +293,36 @@ export default function SubmitBathroomScreen() {
         <Text style={styles.headerTitle}>{isAmendment ? "Suggest an edit" : "Add a bathroom"}</Text>
         <View style={styles.backButton} />
       </View>
+      <View style={styles.headerDivider}>
+        <ArabesqueDivider count={28} />
+      </View>
+
+      {!isAmendment ? (
+        <View style={styles.searchArea}>
+          <SearchBar
+            value={placeQuery}
+            onChangeText={setPlaceQuery}
+            placeholder="Search a street, landmark, or business..."
+          />
+          {isSearchingPlaces ? (
+            <SearchResultsDropdown
+              results={[]}
+              places={placeResults}
+              placesLoading={placesLoading}
+              onSelect={() => {}}
+              onSelectPlace={handleSelectPlace}
+            />
+          ) : null}
+        </View>
+      ) : null}
 
       <View style={styles.mapWrapper}>
-        <PinPickerMap initialCenter={center} onCenterChange={setCenter} locked={isAmendment} />
+        <PinPickerMap
+          initialCenter={center}
+          onCenterChange={setCenter}
+          locked={isAmendment}
+          recenterRequest={recenterRequest}
+        />
       </View>
       {!isAmendment ? (
         <View style={styles.mapHint}>
@@ -213,6 +344,14 @@ export default function SubmitBathroomScreen() {
         />
 
         <ChipSelectField label="Access" options={ACCESS_TYPE_OPTIONS} value={accessType} onChange={setAccessType} />
+        <ChipSelectField label="Cost" options={COST_TYPE_OPTIONS} value={costType} onChange={setCostType} />
+        <ChipSelectField
+          label="Gender / accessibility"
+          options={GENDER_CATEGORY_OPTIONS}
+          value={genderCategory}
+          onChange={setGenderCategory}
+        />
+        <ChipSelectField label="Toilet type" options={TOILET_TYPE_OPTIONS} value={toiletType} onChange={setToiletType} />
 
         <Text style={styles.fieldLabel}>Amenities</Text>
         <View style={styles.amenityGrid}>
@@ -256,20 +395,21 @@ export default function SubmitBathroomScreen() {
         </View>
       </ScrollView>
 
-      <Pressable
+      <PressableScale
         style={[
           styles.submitButton,
           (!canSubmit || submitting || uploadingPhotos) && styles.submitButtonDisabled,
         ]}
+        borderRadius={radii.lg}
         onPress={handleSubmit}
         disabled={!canSubmit || submitting || uploadingPhotos}
       >
         {submitting || uploadingPhotos ? (
-          <ActivityIndicator color={colors.textOnAccent} />
+          <ArabesqueLoader size={22} color={colors.textOnAccent} />
         ) : (
           <Text style={styles.submitButtonText}>{isAmendment ? "Submit suggestion" : "Submit for review"}</Text>
         )}
-      </Pressable>
+      </PressableScale>
 
       <Toast message="Submitted to admins for approval!" visible={showToast} />
     </View>
@@ -301,6 +441,15 @@ const styles = StyleSheet.create({
     height: 34,
     alignItems: "center",
     justifyContent: "center",
+  },
+  headerDivider: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  searchArea: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+    gap: spacing.sm,
   },
   headerTitle: {
     fontSize: fontSize.md,

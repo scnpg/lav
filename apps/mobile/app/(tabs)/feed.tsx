@@ -5,6 +5,7 @@ import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { LavLogo } from "../../src/components/LavLogo";
 import { LevelBadge } from "../../src/components/LevelBadge";
 import { getFriendIds } from "../../src/features/friends/api";
 import {
@@ -16,7 +17,7 @@ import {
 import { useLiveLocation } from "../../src/hooks/useLiveLocation";
 import { useAuth } from "../../src/lib/auth";
 import { formatRelativeTime } from "../../src/lib/format";
-import { fontSize, fontWeight, radii, spacing } from "../../src/theme";
+import { colors, fontSize, fontWeight, radii, spacing } from "../../src/theme";
 
 type FeedTab = "friends" | "popular" | "trending";
 
@@ -25,22 +26,6 @@ const TABS: { key: FeedTab; label: string }[] = [
   { key: "popular", label: "Popular Near Me" },
   { key: "trending", label: "National Trending" },
 ];
-
-// A dedicated dark palette for the activity cards specifically - a
-// deliberate "spotlight" treatment for this one screen, not a global
-// dark-mode system, so it's kept local to this file rather than added to
-// the shared (light, "muted oasis") theme tokens every other screen uses.
-const dark = {
-  background: "#0B0C0E",
-  card: "#17181C",
-  cardBorder: "#26282E",
-  textPrimary: "#F4F3EF",
-  textSecondary: "#9A9CA5",
-  textMuted: "#6B6D76",
-  accent: "#6FE7D8",
-  gold: "#E8B84B",
-  scoreBg: "#20261F",
-};
 
 const SUB_SCORE_FIELDS: {
   key: "cleanliness_score" | "smell_score" | "ambience_score" | "privacy_score";
@@ -133,7 +118,9 @@ export default function FeedScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-      <Text style={styles.title}>Feed</Text>
+      <View style={styles.header}>
+        <LavLogo size={22} />
+      </View>
 
       <View style={styles.tabRow}>
         {TABS.map((tab) => (
@@ -151,7 +138,7 @@ export default function FeedScreen() {
 
       {loading ? (
         <View style={styles.centerContent}>
-          <ActivityIndicator color={dark.accent} />
+          <ActivityIndicator color={colors.accent} />
         </View>
       ) : error ? (
         <View style={styles.centerContent}>
@@ -162,14 +149,14 @@ export default function FeedScreen() {
         </View>
       ) : reviews.length === 0 ? (
         <View style={styles.centerContent}>
-          <Ionicons name={empty.icon} size={28} color={dark.textMuted} />
+          <Ionicons name={empty.icon} size={28} color={colors.textMuted} />
           <Text style={styles.emptyText}>{empty.text}</Text>
         </View>
       ) : (
         <ScrollView
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={dark.accent} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.accent} />}
         >
           {reviews.map((review) => (
             <FeedCard key={review.id} review={review} onPress={() => router.push(`/bathrooms/${review.bathroom_id}`)} />
@@ -224,7 +211,7 @@ function FeedCard({ review, onPress }: { review: RecentReviewFeedItem; onPress: 
           {review.bathroom?.name ?? "a bathroom"}
         </Text>
         <View style={styles.overallBadge}>
-          <Ionicons name="star" size={13} color={dark.gold} />
+          <Ionicons name="star" size={13} color={colors.gold} />
           <Text style={styles.overallBadgeText}>{review.overall_rating.toFixed(1)}</Text>
         </View>
       </View>
@@ -248,21 +235,18 @@ function FeedCard({ review, onPress }: { review: RecentReviewFeedItem; onPress: 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: dark.background,
+    backgroundColor: colors.background,
   },
-  title: {
-    fontSize: fontSize.xl,
-    fontWeight: fontWeight.bold,
-    color: dark.textPrimary,
+  header: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
   },
   tabRow: {
     flexDirection: "row",
-    backgroundColor: dark.card,
+    backgroundColor: colors.surface,
     borderRadius: radii.full,
     borderWidth: 1,
-    borderColor: dark.cardBorder,
+    borderColor: colors.border,
     padding: 3,
     marginHorizontal: spacing.lg,
     marginTop: spacing.md,
@@ -277,15 +261,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   tabButtonActive: {
-    backgroundColor: dark.accent,
+    backgroundColor: colors.accent,
   },
   tabButtonText: {
     fontSize: fontSize.xs,
     fontWeight: fontWeight.medium,
-    color: dark.textSecondary,
+    color: colors.textSecondary,
   },
   tabButtonTextActive: {
-    color: "#0B0C0E",
+    color: colors.textOnAccent,
     fontWeight: fontWeight.bold,
   },
   centerContent: {
@@ -297,16 +281,16 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: fontSize.sm,
-    color: dark.textSecondary,
+    color: colors.textSecondary,
     textAlign: "center",
   },
   errorText: {
     fontSize: fontSize.sm,
-    color: "#E8827A",
+    color: colors.danger,
     textAlign: "center",
   },
   retryButton: {
-    backgroundColor: dark.accent,
+    backgroundColor: colors.accent,
     borderRadius: radii.lg,
     paddingHorizontal: spacing.lg,
     height: 40,
@@ -325,10 +309,10 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   card: {
-    backgroundColor: dark.card,
+    backgroundColor: colors.surface,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: dark.cardBorder,
+    borderColor: colors.border,
     padding: spacing.md,
     gap: spacing.sm,
   },
@@ -348,7 +332,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: radii.full,
-    backgroundColor: dark.cardBorder,
+    backgroundColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -360,7 +344,7 @@ const styles = StyleSheet.create({
   avatarInitial: {
     fontSize: fontSize.base,
     fontWeight: fontWeight.bold,
-    color: dark.textPrimary,
+    color: colors.textPrimary,
   },
   headerText: {
     flex: 1,
@@ -370,7 +354,7 @@ const styles = StyleSheet.create({
   authorName: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.semibold,
-    color: dark.textPrimary,
+    color: colors.textPrimary,
   },
   headerMetaRow: {
     flexDirection: "row",
@@ -379,7 +363,7 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontSize: fontSize.xs,
-    color: dark.textMuted,
+    color: colors.textMuted,
   },
   bathroomRow: {
     flexDirection: "row",
@@ -391,13 +375,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: fontSize.md,
     fontWeight: fontWeight.bold,
-    color: dark.textPrimary,
+    color: colors.textPrimary,
   },
   overallBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: dark.scoreBg,
+    backgroundColor: colors.goldMuted,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
     borderRadius: radii.full,
@@ -405,20 +389,20 @@ const styles = StyleSheet.create({
   overallBadgeText: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.bold,
-    color: dark.gold,
+    color: colors.gold,
   },
   venueText: {
     fontSize: fontSize.sm,
-    color: dark.textSecondary,
+    color: colors.textSecondary,
     marginTop: -4,
   },
   subScoreText: {
     fontSize: fontSize.xs,
-    color: dark.textSecondary,
+    color: colors.textSecondary,
   },
   reviewText: {
     fontSize: fontSize.sm,
-    color: dark.textSecondary,
+    color: colors.textSecondary,
     fontStyle: "italic",
   },
 });

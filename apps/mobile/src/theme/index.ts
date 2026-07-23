@@ -1,7 +1,7 @@
 import { Platform } from "react-native";
-import { colors, spacing, radii, fontSize, fontWeight, lineHeight } from "./tokens";
+import { colors, darkColors, spacing, radii, fontSize, fontWeight, lineHeight } from "./tokens";
 
-export { colors, spacing, radii, fontSize, fontWeight, lineHeight };
+export { colors, darkColors, spacing, radii, fontSize, fontWeight, lineHeight };
 
 /** Cross-platform card/elevated-surface shadow. iOS uses shadow*, Android uses elevation, web uses boxShadow. */
 export function cardShadow(level: "sm" | "md" = "sm") {

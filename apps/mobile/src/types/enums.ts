@@ -27,7 +27,7 @@ export type AccessDifficulty = (typeof ACCESS_DIFFICULTIES)[number];
 export const COST_TYPES = ["free", "purchase_required", "paid", "unknown"] as const;
 export type CostType = (typeof COST_TYPES)[number];
 
-export const GENDER_CATEGORIES = ["male", "female", "all_gender", "family", "accessible", "unknown"] as const;
+export const GENDER_CATEGORIES = ["male", "female", "male_female", "all_gender", "family", "accessible", "unknown"] as const;
 export type GenderCategory = (typeof GENDER_CATEGORIES)[number];
 
 export const TOILET_TYPES = ["sitting", "squat", "bidet", "urinal_only", "mixed", "unknown"] as const;

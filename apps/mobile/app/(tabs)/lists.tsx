@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { LavLogo } from "../../src/components/LavLogo";
 import { ACCESS_TYPE_LABELS, COST_TYPE_LABELS } from "../../src/constants/enumLabels";
 import { getSavedBathrooms, toggleBookmark } from "../../src/features/bathrooms/api";
 import { getListItemCounts, getListsForUser } from "../../src/features/lists/api";
@@ -200,7 +201,9 @@ export default function ListsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-      <Text style={styles.title}>Lists</Text>
+      <View style={styles.header}>
+        <LavLogo size={22} />
+      </View>
       <ScrollView
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -258,6 +261,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: spacing["2xl"],
     gap: spacing.sm,
+  },
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
   },
   title: {
     fontSize: fontSize.xl,

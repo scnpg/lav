@@ -1,3 +1,4 @@
+import { haversineDistanceMeters } from "../../lib/geo";
 import { supabase } from "../../lib/supabase";
 import type { BathroomNearby, BathroomPrivateFields, BathroomPublic } from "../../types/database";
 import type {
@@ -99,11 +100,28 @@ export async function getNearbyBathrooms(
   return data ?? [];
 }
 
-export async function searchBathroomsByText(query: string): Promise<BathroomNearby[]> {
+/**
+ * Global (not viewport-scoped) text search over every verified bathroom, via
+ * search_verified_bathrooms() - unlike searchBathrooms() in ./search.ts,
+ * which only filters whatever's already loaded into map state.
+ * search_verified_bathrooms's own return shape doesn't include a distance
+ * (it has no concept of "from where"), so distance_meters - required by
+ * BathroomNearby - is computed here instead: real haversine distance when
+ * the caller has a location to compare against, 0 otherwise (same
+ * placeholder convention the Map screen's own getBathroomsInBounds call
+ * site already uses).
+ */
+export async function searchBathroomsByText(
+  query: string,
+  userLocation?: { latitude: number; longitude: number } | null
+): Promise<BathroomNearby[]> {
   if (!query.trim()) return [];
   const { data, error } = await supabase.rpc("search_verified_bathrooms", { search_query: query.trim() });
   if (error) throw new Error(error.message);
-  return (data ?? []) as BathroomNearby[];
+  return ((data ?? []) as BathroomNearby[]).map((b) => ({
+    ...b,
+    distance_meters: userLocation ? haversineDistanceMeters(userLocation, b) : 0,
+  }));
 }
 
 export async function getBathroomById(id: string): Promise<BathroomPublic | null> {
@@ -197,6 +215,7 @@ export interface BathroomFillMissingPatch {
   access_type?: AccessType | null;
   access_notes?: string | null;
   cost_type?: CostType | null;
+  cost_amount?: number | null;
   gender_category?: GenderCategory | null;
   toilet_type?: ToiletType | null;
   amenities?: AmenitiesMap;

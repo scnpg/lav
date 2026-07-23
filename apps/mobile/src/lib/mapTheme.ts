@@ -1,12 +1,15 @@
 import type { MapLibreMap } from "maplibre-gl";
 
 // ---------------------------------------------------------------------------
-// Apple-Maps-inspired "oasis" re-theme of OpenFreeMap's "Liberty" vector
-// style (https://tiles.openfreemap.org/styles/liberty, OpenMapTiles schema -
-// see src/lib/mapStyle.ts). We don't control that style - it's loaded by
-// URL, not vendored into this repo - so this runs once the map has finished
-// loading it, and recolors known layers in place via
-// setPaintProperty/setLayoutProperty.
+// Re-theme of OpenFreeMap's "Liberty" vector style
+// (https://tiles.openfreemap.org/styles/liberty, OpenMapTiles schema - see
+// src/lib/mapStyle.ts) to match src/theme/tokens.ts. We don't control that
+// style - it's loaded by URL, not vendored into this repo - so this runs
+// once the map has finished loading it, and recolors known layers in place
+// via setPaintProperty/setLayoutProperty. Named generically (not after a
+// specific palette) so it doesn't go stale the next time the palette does -
+// see git history for this file's own comment under the old "oasis" tokens
+// if you need the previous color set.
 //
 // Every call goes through setPaint/setLayout below, which checks the layer
 // exists and swallows any error: if OpenFreeMap ever renames/restructures a
@@ -37,20 +40,20 @@ function setLayout(map: MapLibreMap, layerId: string, prop: string, value: unkno
   }
 }
 
-// Matches the app's own oasis tokens (src/theme/tokens.ts) where there's a
-// direct equivalent; a few map-only in-between tones are defined here since
-// the app palette doesn't have e.g. a dedicated "water" shade.
-const LAND = "#FAF7EF"; // == colors.background - warm off-white land
+// Matches the app's own tokens (src/theme/tokens.ts) where there's a direct
+// equivalent; a few map-only in-between tones are defined here since the
+// app palette doesn't have e.g. a dedicated "water" shade.
+const LAND = "#FDFBF7"; // == colors.background - warm porcelain land
 const WATER = "#D6E6F5"; // pale sky blue, between colors.skyMuted and colors.sky
 const WATERWAY_LINE = "#BFD9F0";
-const WATER_LABEL = "#6B86AC";
+const WATER_LABEL = "#2E4E9E"; // tinted toward the new ceramic-blue accent family
 const PARK_FILL = "#DCE8D3"; // muted palm green
 const PARK_OUTLINE = "rgba(126, 159, 117, 0.35)"; // == colors.success, low alpha
-const ROAD_CASING = "#D8CFBE"; // == colors.borderStrong - subtle, low-contrast outline
+const ROAD_CASING = "#D6CDB8"; // == colors.borderStrong - subtle, low-contrast outline
 const ROAD_MINOR = "#FFFFFF";
-const ROAD_SECONDARY = "#F3EEE3";
+const ROAD_SECONDARY = "#F1EFE7";
 const ROAD_MOTORWAY = "#FAF1DE"; // == colors.sandMuted
-const BUILDING = "#F1ECDF"; // == colors.surfaceMuted
+const BUILDING = "#EFEAE0"; // == colors.surfaceMuted
 const LABEL_INK = "#252824"; // == colors.textPrimary
 const LABEL_SECONDARY = "#6F6A5F"; // == colors.textSecondary
 
@@ -127,7 +130,7 @@ const PLACE_LABEL_LAYERS = [
 // transit stations are genuinely useful wayfinding context, not clutter.
 const POI_CLUTTER_LAYERS = ["poi_r20", "poi_r7", "poi_r1"];
 
-export function applyOasisMapTheme(map: MapLibreMap) {
+export function applyLavMapTheme(map: MapLibreMap) {
   setPaint(map, "background", "background-color", LAND);
 
   setPaint(map, "water", "fill-color", WATER);

@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { colors, fontSize, fontWeight, radii, spacing } from "../../theme";
 
 interface RatingHeaderProps {
-  globalAverage: number | null;
+  globalScore: number | null;
   reviewCount: number;
   yourRating: number | null;
 }
@@ -14,16 +14,18 @@ function formatTen(value: number): string {
 }
 
 // "Global: 8.7 | Yours: 9.2" - the headline number on the redesigned
-// bathroom screen. Either half falls back to a plain dash rather than 0.0
-// when there's no data yet (0.0 would read as "rated zero", not "unrated").
-export function RatingHeader({ globalAverage, reviewCount, yourRating }: RatingHeaderProps) {
+// bathroom screen. globalScore is the community mode (bathrooms.overall_score /
+// get_bathroom_review_stats.overall_mode - see 0028/0029), not an average.
+// Either half falls back to a plain dash rather than 0.0 when there's no
+// data yet (0.0 would read as "rated zero", not "unrated").
+export function RatingHeader({ globalScore, reviewCount, yourRating }: RatingHeaderProps) {
   return (
     <View style={styles.row}>
       <View style={styles.block}>
         <Text style={styles.label}>Global</Text>
         <View style={styles.valueRow}>
           <Ionicons name="star" size={20} color={colors.gold} />
-          <Text style={styles.value}>{globalAverage !== null ? formatTen(globalAverage) : "—"}</Text>
+          <Text style={styles.value}>{globalScore !== null ? formatTen(globalScore) : "—"}</Text>
         </View>
         <Text style={styles.subtext}>
           {reviewCount} log{reviewCount === 1 ? "" : "s"}

@@ -5,7 +5,8 @@ import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Wordmark } from "../../src/components/Wordmark";
+import { ArabesquePattern } from "../../src/components/ArabesquePattern";
+import { LavLogo } from "../../src/components/LavLogo";
 import { useAuth } from "../../src/lib/auth";
 import { uploadAvatar } from "../../src/lib/profiles";
 import { colors, fontSize, fontWeight, lineHeight, radii, spacing } from "../../src/theme";
@@ -92,8 +93,11 @@ export default function OnboardingScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
+      <View style={styles.patternLayer} pointerEvents="none">
+        <ArabesquePattern rows={16} columns={7} starSize={22} gap={16} opacity={0.05} />
+      </View>
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        <Wordmark size={32} />
+        <LavLogo size={32} />
         <Text style={styles.description}>Set up your profile before you start exploring.</Text>
 
         <Pressable style={styles.avatarButton} onPress={handlePickPhoto} disabled={uploadingPhoto}>
@@ -158,6 +162,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  patternLayer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
   },
   scrollContent: {
     flexGrow: 1,

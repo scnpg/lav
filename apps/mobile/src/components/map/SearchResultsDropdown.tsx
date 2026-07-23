@@ -1,25 +1,81 @@
 import { Ionicons } from "@expo/vector-icons";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { ACCESS_TYPE_LABELS } from "../../constants/enumLabels";
+import type { PlaceResult } from "../../features/places/search";
 import { formatDistance, formatScore } from "../../lib/format";
 import { cardShadow, colors, fontSize, fontWeight, radii, spacing } from "../../theme";
 import type { BathroomNearby } from "../../types/database";
 
+const PLACE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  train: "train-outline",
+  street: "trail-sign-outline",
+  hotel: "bed-outline",
+  store: "storefront-outline",
+  landmark: "flag-outline",
+  neighborhood: "map-outline",
+  district: "map-outline",
+  place: "location-outline",
+};
+
 interface SearchResultsDropdownProps {
   results: BathroomNearby[];
+  places?: PlaceResult[];
+  placesLoading?: boolean;
   onSelect: (id: string) => void;
+  onSelectPlace?: (place: PlaceResult) => void;
 }
 
-export function SearchResultsDropdown({ results, onSelect }: SearchResultsDropdownProps) {
+// Two sections when there's anything to show under "Places" - bathrooms
+// people can rate/log, and everything else (streets, landmarks, hotels...)
+// for finding a neighborhood you don't already know, via Nominatim
+// (src/features/places/search.ts). Tapping a place flies the map there and
+// lets the viewport-based bathroom fetch take over, same as tapping a
+// bathroom centers on it directly.
+export function SearchResultsDropdown({ results, places = [], placesLoading, onSelect, onSelectPlace }: SearchResultsDropdownProps) {
+  const hasPlaces = places.length > 0 || placesLoading;
   return (
     <View style={[styles.container, cardShadow("sm")]}>
-      {results.length === 0 ? (
+      {results.length === 0 && !hasPlaces ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyText}>No bathrooms found</Text>
         </View>
       ) : (
         <ScrollView style={styles.list} keyboardShouldPersistTaps="handled" accessibilityRole="list">
+          {hasPlaces ? (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeaderText}>Places</Text>
+              {placesLoading ? <ActivityIndicator size="small" color={colors.textMuted} /> : null}
+            </View>
+          ) : null}
+          {places.map((place) => (
+            <TouchableOpacity
+              key={place.id}
+              style={styles.row}
+              onPress={() => onSelectPlace?.(place)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`${place.label}, ${place.sublabel}`}
+              accessibilityHint="Flies the map to this place"
+            >
+              <Ionicons name={PLACE_ICONS[place.category] ?? PLACE_ICONS.place} size={18} color={colors.accentStrong} />
+              <View style={styles.rowMain}>
+                <Text style={styles.name} numberOfLines={1}>
+                  {place.label}
+                </Text>
+                {place.sublabel ? (
+                  <Text style={styles.subtitle} numberOfLines={1}>
+                    {place.sublabel}
+                  </Text>
+                ) : null}
+              </View>
+            </TouchableOpacity>
+          ))}
+          {results.length > 0 ? (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeaderText}>Bathrooms</Text>
+            </View>
+          ) : null}
           {results.map((bathroom) => (
             <TouchableOpacity
               key={bathroom.id}
@@ -67,6 +123,22 @@ const styles = StyleSheet.create({
   },
   list: {
     maxHeight: 280,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: 4,
+    backgroundColor: colors.surfaceMuted,
+  },
+  sectionHeaderText: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   row: {
     flexDirection: "row",

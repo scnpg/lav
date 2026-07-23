@@ -11,6 +11,7 @@ import { Toast } from "../../src/components/Toast";
 import { BathroomActionPanel } from "../../src/components/bathroom/BathroomActionPanel";
 import { DetailsGrid } from "../../src/components/bathroom/DetailsGrid";
 import { MediaCarousel } from "../../src/components/bathroom/MediaCarousel";
+import { PhotoGallery } from "../../src/components/bathroom/PhotoGallery";
 import { RateBathroomModal } from "../../src/components/bathroom/RateBathroomModal";
 import { RatingHeader } from "../../src/components/bathroom/RatingHeader";
 import { ReportBathroomModal } from "../../src/components/bathroom/ReportBathroomModal";
@@ -239,7 +240,7 @@ export default function BathroomDetailScreen() {
           </View>
 
           <RatingHeader
-            globalAverage={stats?.avg_overall ?? null}
+            globalScore={stats?.overall_mode ?? null}
             reviewCount={stats?.review_count ?? 0}
             yourRating={yourRating}
           />
@@ -267,6 +268,8 @@ export default function BathroomDetailScreen() {
           />
 
           <DetailsGrid bathroom={bathroom} />
+
+          <PhotoGallery images={images} />
 
           {reviewsWithText.length > 0 ? (
             <View style={styles.reviewsSection}>
@@ -311,8 +314,7 @@ export default function BathroomDetailScreen() {
 
       {showRatingModal ? (
         <RateBathroomModal
-          bathroomId={bathroom.id}
-          bathroomName={bathroom.name}
+          bathroom={bathroom}
           onClose={() => setShowRatingModal(false)}
           onSaved={(review) => {
             setYourRating(review.overall_rating);

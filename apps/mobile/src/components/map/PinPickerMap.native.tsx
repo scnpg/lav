@@ -12,6 +12,8 @@ interface PinPickerMapProps {
   initialCenter: Coordinate;
   onCenterChange: (center: Coordinate) => void;
   locked?: boolean;
+  /** Web-only imperative recenter channel - unused here since this fallback has no live map camera to move; declared for prop-shape parity with PinPickerMap.web.tsx. */
+  recenterRequest?: (Coordinate & { token: number }) | null;
 }
 
 // Native (iOS/Android) doesn't have a real interactive map yet - same

@@ -2,49 +2,85 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { ArabesqueDivider } from "../ArabesqueDivider";
+import { ArabesqueLoader } from "../ArabesqueLoader";
+import { ALL_AMENITIES, AMENITY_LABELS } from "../../constants/amenities";
+import { ACCESS_TYPE_LABELS, COST_TYPE_LABELS, GENDER_CATEGORY_LABELS, TOILET_TYPE_LABELS } from "../../constants/enumLabels";
+import { updateBathroomDetails } from "../../features/bathrooms/api";
 import { getMyReview, upsertBathroomReview, uploadReviewPhoto } from "../../features/bathrooms/ratingsApi";
 import { useAuth } from "../../lib/auth";
 import { cardShadow, colors, fontSize, fontWeight, radii, spacing } from "../../theme";
-import type { BathroomReview } from "../../types/database";
-import { FormStatusBanner, type FormStatus } from "./EditableFieldControls";
+import type { BathroomPublic, BathroomReview } from "../../types/database";
+import { ACCESS_TYPES, COST_TYPES, GENDER_CATEGORIES, TOILET_TYPES, type AmenitiesMap, type AmenityKey } from "../../types/enums";
+import { ChipSelectField, FormStatusBanner, TextField, type FormStatus } from "./EditableFieldControls";
+import { PressableScale } from "../PressableScale";
+import { RatingSlider } from "./RatingSlider";
+
+// Pick, not the full BathroomPublic - BathroomNearby (the map screen's own
+// bathroom shape) omits a few admin-only fields (submitted_by, verified_by,
+// created_at, updated_at) this modal never touches anyway, and both callers
+// (the map screen and the detail screen) already have one of these two
+// types in scope, so this modal doesn't need to accept only one of them.
+type RatableBathroom = Pick<
+  BathroomPublic,
+  "id" | "name" | "access_type" | "cost_type" | "cost_amount" | "gender_category" | "toilet_type" | "amenities"
+>;
 
 interface RateBathroomModalProps {
-  bathroomId: string;
-  bathroomName: string;
+  bathroom: RatableBathroom;
   onClose: () => void;
   onSaved?: (review: BathroomReview) => void;
 }
 
-// Common stops across the 0.0-10.0 range, not the full 101-value set - fast
-// taps for the common case, the text field next to it covers everything
-// in between for someone who wants to type e.g. 6.3 exactly.
-const QUICK_SCORES = [4, 5, 6, 7, 7.5, 8, 8.5, 9, 9.5, 10];
+const ACCESS_TYPE_OPTIONS = ACCESS_TYPES.map((value) => ({ value, label: ACCESS_TYPE_LABELS[value] }));
+const COST_TYPE_OPTIONS = COST_TYPES.map((value) => ({ value, label: COST_TYPE_LABELS[value] }));
+const GENDER_CATEGORY_OPTIONS = GENDER_CATEGORIES.map((value) => ({ value, label: GENDER_CATEGORY_LABELS[value] }));
+const TOILET_TYPE_OPTIONS = TOILET_TYPES.map((value) => ({ value, label: TOILET_TYPE_LABELS[value] }));
+const MAX_PHOTOS = 6;
 
-function clampOverall(value: number): number {
-  return Math.min(10, Math.max(0, Math.round(value * 10) / 10));
-}
-
-// The Beli-style scorecard: one overall 0.0-10.0 rating plus four 1-5
-// sub-scores, matching bathroom_reviews' shape 1:1 (see
-// supabase/migrations/0016_bathroom_reviews.sql). Upserts - opening this on
-// a bathroom you've already rated pre-fills your existing scores and updates
-// that same row instead of creating a second one.
-export function RateBathroomModal({ bathroomId, bathroomName, onClose, onSaved }: RateBathroomModalProps) {
+// The Beli-style scorecard: one overall 0-10 rating (slider, snaps to 0.5 -
+// bathrooms.overall_score is now the *mode* across every rater, see
+// 0028_mode_based_overall_score.sql, and a mode is only meaningful if raters
+// actually land on shared values instead of arbitrary decimals) plus four
+// 1-5 sub-scores, matching bathroom_reviews' shape 1:1. Upserts - opening
+// this on a bathroom you've already rated pre-fills your existing scores and
+// updates that same row instead of creating a second one.
+//
+// Also doubles as a "fill in what you noticed" form for the bathroom itself
+// (access/cost/gender/toilet type, wheelchair/changing station) - same
+// direct-write path as EditBathroomModal (updateBathroomDetails), not the
+// bathroom_submissions moderation queue: these are objective, enum-constrained
+// facts rather than free-text content, so there's nothing here for a human
+// moderator to review. A failed detail patch doesn't block the rating itself
+// from saving - same "best-effort, non-blocking" treatment as the photo
+// attachment below.
+export function RateBathroomModal({ bathroom, onClose, onSaved }: RateBathroomModalProps) {
   const { user } = useAuth();
   const [loadingExisting, setLoadingExisting] = useState(true);
   const [existingReview, setExistingReview] = useState<BathroomReview | null>(null);
-  const [overallText, setOverallText] = useState("8.0");
+  const [overallValue, setOverallValue] = useState(8);
   const [cleanliness, setCleanliness] = useState(0);
   const [smell, setSmell] = useState(0);
   const [ambience, setAmbience] = useState(0);
   const [privacy, setPrivacy] = useState(0);
   const [reviewText, setReviewText] = useState("");
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoUris, setPhotoUris] = useState<string[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState<FormStatus | null>(null);
+
+  const [accessType, setAccessType] = useState(bathroom.access_type);
+  const [costType, setCostType] = useState(bathroom.cost_type);
+  const [costAmountText, setCostAmountText] = useState(bathroom.cost_amount != null ? String(bathroom.cost_amount) : "");
+  const [genderCategory, setGenderCategory] = useState(bathroom.gender_category);
+  const [toiletType, setToiletType] = useState(bathroom.toilet_type);
+  const [amenities, setAmenities] = useState<AmenitiesMap>(bathroom.amenities);
+
+  function toggleAmenity(key: AmenityKey) {
+    setAmenities((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
 
   useEffect(() => {
     if (!user) {
@@ -52,11 +88,11 @@ export function RateBathroomModal({ bathroomId, bathroomName, onClose, onSaved }
       return;
     }
     let cancelled = false;
-    getMyReview(bathroomId, user.id).then((review) => {
+    getMyReview(bathroom.id, user.id).then((review) => {
       if (cancelled) return;
       if (review) {
         setExistingReview(review);
-        setOverallText(review.overall_rating.toFixed(1));
+        setOverallValue(review.overall_rating);
         setCleanliness(review.cleanliness_score ?? 0);
         setSmell(review.smell_score ?? 0);
         setAmbience(review.ambience_score ?? 0);
@@ -68,17 +104,15 @@ export function RateBathroomModal({ bathroomId, bathroomName, onClose, onSaved }
     return () => {
       cancelled = true;
     };
-  }, [bathroomId, user]);
+  }, [bathroom.id, user]);
 
-  const overallValue = Number(overallText);
-  const isOverallValid =
-    overallText.trim().length > 0 && !Number.isNaN(overallValue) && overallValue >= 0 && overallValue <= 10;
-  const canSubmit = isOverallValid && !submitting && !!user;
+  const canSubmit = !!user && !submitting;
 
   async function handlePickPhoto() {
+    if (photoUris.length >= MAX_PHOTOS) return;
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      setStatus({ type: "error", message: "Enable photo library access to attach a photo." });
+      setStatus({ type: "error", message: "Enable photo library access to attach photos." });
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -86,7 +120,11 @@ export function RateBathroomModal({ bathroomId, bathroomName, onClose, onSaved }
       quality: 0.7,
     });
     if (result.canceled || !result.assets[0]) return;
-    setPhotoUri(result.assets[0].uri);
+    setPhotoUris((prev) => [...prev, result.assets[0].uri]);
+  }
+
+  function handleRemovePhoto(uri: string) {
+    setPhotoUris((prev) => prev.filter((existing) => existing !== uri));
   }
 
   async function handleSubmit() {
@@ -95,22 +133,35 @@ export function RateBathroomModal({ bathroomId, bathroomName, onClose, onSaved }
     setStatus(null);
     try {
       const review = await upsertBathroomReview({
-        bathroom_id: bathroomId,
+        bathroom_id: bathroom.id,
         user_id: user.id,
-        overall_rating: clampOverall(overallValue),
+        overall_rating: overallValue,
         cleanliness_score: cleanliness || null,
         smell_score: smell || null,
         ambience_score: ambience || null,
         privacy_score: privacy || null,
         review_text: reviewText.trim() || null,
       });
-      if (photoUri) {
+      if (photoUris.length > 0) {
         setUploadingPhoto(true);
         try {
-          await uploadReviewPhoto(bathroomId, user.id, photoUri, review.id);
+          await Promise.all(photoUris.map((uri) => uploadReviewPhoto(bathroom.id, user.id, uri, review.id)));
         } finally {
           setUploadingPhoto(false);
         }
+      }
+      try {
+        const parsedCostAmount = costAmountText.trim() ? Number(costAmountText.trim()) : null;
+        await updateBathroomDetails(bathroom.id, {
+          access_type: accessType,
+          cost_type: costType,
+          cost_amount: parsedCostAmount !== null && !Number.isNaN(parsedCostAmount) ? parsedCostAmount : null,
+          gender_category: genderCategory,
+          toilet_type: toiletType,
+          amenities,
+        });
+      } catch {
+        // Best-effort enrichment - the rating itself already saved either way.
       }
       onSaved?.(review);
       setStatus({ type: "success", message: existingReview ? "Rating updated." : "Logged." });
@@ -136,19 +187,22 @@ export function RateBathroomModal({ bathroomId, bathroomName, onClose, onSaved }
           <View style={styles.headerText}>
             <Text style={styles.title}>Rate & log</Text>
             <Text style={styles.subtitle} numberOfLines={1}>
-              {bathroomName}
+              {bathroom.name}
             </Text>
           </View>
           <Pressable onPress={onClose} style={styles.closeButton} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close">
             <Ionicons name="close" size={18} color={colors.textSecondary} />
           </Pressable>
         </View>
+        <View style={styles.headerDivider}>
+          <ArabesqueDivider count={24} />
+        </View>
 
         <FormStatusBanner status={status} />
 
         {loadingExisting ? (
           <View style={styles.loadingBlock}>
-            <ActivityIndicator color={colors.accentStrong} />
+            <ArabesqueLoader size={36} color={colors.accentStrong} />
           </View>
         ) : (
           <ScrollView
@@ -159,37 +213,7 @@ export function RateBathroomModal({ bathroomId, bathroomName, onClose, onSaved }
           >
             <View style={styles.fieldBlock}>
               <Text style={styles.fieldLabel}>Overall score</Text>
-              <View style={styles.overallInputRow}>
-                <TextInput
-                  value={overallText}
-                  onChangeText={setOverallText}
-                  keyboardType="decimal-pad"
-                  style={styles.overallInput}
-                  maxLength={4}
-                />
-                <Text style={styles.overallScale}>/ 10.0</Text>
-              </View>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.quickScoreRow}
-              >
-                {QUICK_SCORES.map((score) => {
-                  const active = Number(overallText) === score;
-                  return (
-                    <Pressable
-                      key={score}
-                      onPress={() => setOverallText(score.toFixed(1))}
-                      style={[styles.quickScoreChip, active && styles.quickScoreChipActive]}
-                    >
-                      <Text style={[styles.quickScoreText, active && styles.quickScoreTextActive]}>
-                        {score.toFixed(1)}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-              {!isOverallValid ? <Text style={styles.errorText}>Enter a score between 0.0 and 10.0.</Text> : null}
+              <RatingSlider value={overallValue} onValueChange={setOverallValue} min={0} max={10} step={0.5} />
             </View>
 
             <StarPickerRow label="Cleanliness" value={cleanliness} onChange={setCleanliness} />
@@ -209,33 +233,90 @@ export function RateBathroomModal({ bathroomId, bathroomName, onClose, onSaved }
               />
             </View>
 
-            <Pressable style={styles.photoButton} onPress={handlePickPhoto}>
-              {photoUri ? (
-                <Image source={{ uri: photoUri }} style={styles.photoPreview} />
-              ) : (
-                <View style={styles.photoPlaceholder}>
-                  <Ionicons name="camera-outline" size={20} color={colors.textSecondary} />
-                </View>
-              )}
-              <Text style={styles.photoButtonText}>{photoUri ? "Change photo" : "Attach a photo"}</Text>
-            </Pressable>
+            <View style={styles.fieldBlock}>
+              <Text style={styles.fieldLabel}>Photos</Text>
+              <View style={styles.photoGrid}>
+                {photoUris.map((uri) => (
+                  <View key={uri} style={styles.photoThumbWrapper}>
+                    <Image source={{ uri }} style={styles.photoThumb} />
+                    <Pressable
+                      style={styles.photoRemoveButton}
+                      onPress={() => handleRemovePhoto(uri)}
+                      hitSlop={6}
+                      accessibilityRole="button"
+                      accessibilityLabel="Remove photo"
+                    >
+                      <Ionicons name="close" size={12} color={colors.textOnAccent} />
+                    </Pressable>
+                  </View>
+                ))}
+                {photoUris.length < MAX_PHOTOS ? (
+                  <Pressable
+                    style={styles.photoAddButton}
+                    onPress={handlePickPhoto}
+                    accessibilityRole="button"
+                    accessibilityLabel="Add a photo"
+                  >
+                    <Ionicons name="camera-outline" size={20} color={colors.textSecondary} />
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
+
+            <View style={styles.detailsSection}>
+              <Text style={styles.detailsSectionTitle}>Help us fill in the details</Text>
+              <ChipSelectField label="Access" options={ACCESS_TYPE_OPTIONS} value={accessType} onChange={setAccessType} />
+              <ChipSelectField label="Cost" options={COST_TYPE_OPTIONS} value={costType} onChange={setCostType} />
+              <TextField
+                label="Cost amount"
+                value={costAmountText}
+                onChangeText={setCostAmountText}
+                placeholder="e.g. 0.50"
+              />
+              <ChipSelectField
+                label="Gender / accessibility"
+                options={GENDER_CATEGORY_OPTIONS}
+                value={genderCategory}
+                onChange={setGenderCategory}
+              />
+              <ChipSelectField label="Toilet type" options={TOILET_TYPE_OPTIONS} value={toiletType} onChange={setToiletType} />
+
+              <Text style={styles.fieldLabel}>Amenities</Text>
+              <View style={styles.amenityGrid}>
+                {ALL_AMENITIES.map((key) => {
+                  const active = !!amenities[key];
+                  return (
+                    <Pressable
+                      key={key}
+                      style={[styles.amenityChip, active && styles.amenityChipActive]}
+                      onPress={() => toggleAmenity(key)}
+                    >
+                      <Text style={[styles.amenityChipText, active && styles.amenityChipTextActive]}>
+                        {AMENITY_LABELS[key]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
           </ScrollView>
         )}
 
-        <Pressable
+        <PressableScale
           style={[
             styles.submitButton,
             (!canSubmit || uploadingPhoto || status?.type === "success") && styles.submitButtonDisabled,
           ]}
+          borderRadius={radii.lg}
           onPress={handleSubmit}
           disabled={!canSubmit || uploadingPhoto || status?.type === "success"}
         >
           {submitting || uploadingPhoto ? (
-            <ActivityIndicator color={colors.textOnAccent} />
+            <ArabesqueLoader size={22} color={colors.textOnAccent} />
           ) : (
             <Text style={styles.submitButtonText}>{existingReview ? "Update rating" : "Save rating"}</Text>
           )}
-        </Pressable>
+        </PressableScale>
       </View>
     </View>
   );
@@ -286,8 +367,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     padding: spacing.lg,
     paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+  },
+  headerDivider: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
   },
   headerText: {
     flex: 1,
@@ -326,50 +409,6 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.medium,
     color: colors.textSecondary,
   },
-  overallInputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  overallInput: {
-    fontSize: fontSize["2xl"],
-    fontWeight: fontWeight.bold,
-    color: colors.textPrimary,
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.md,
-    height: 52,
-    minWidth: 100,
-    textAlign: "center",
-  },
-  overallScale: {
-    fontSize: fontSize.base,
-    color: colors.textMuted,
-  },
-  quickScoreRow: {
-    gap: spacing.xs,
-    paddingVertical: spacing.xs,
-  },
-  quickScoreChip: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    borderRadius: radii.full,
-    backgroundColor: colors.sandMuted,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  quickScoreChipActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  quickScoreText: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
-    color: colors.textSecondary,
-  },
-  quickScoreTextActive: {
-    color: colors.textOnAccent,
-  },
   errorText: {
     fontSize: fontSize.xs,
     color: colors.danger,
@@ -396,28 +435,76 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     textAlignVertical: "top",
   },
-  photoButton: {
+  photoGrid: {
     flexDirection: "row",
-    alignItems: "center",
+    flexWrap: "wrap",
     gap: spacing.sm,
   },
-  photoPlaceholder: {
-    width: 44,
-    height: 44,
+  photoThumbWrapper: {
+    position: "relative",
+  },
+  photoThumb: {
+    width: 64,
+    height: 64,
     borderRadius: radii.md,
-    backgroundColor: colors.accentMuted,
+    backgroundColor: colors.surfaceMuted,
+  },
+  photoRemoveButton: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    width: 20,
+    height: 20,
+    borderRadius: radii.full,
+    backgroundColor: colors.textPrimary,
     alignItems: "center",
     justifyContent: "center",
   },
-  photoPreview: {
-    width: 44,
-    height: 44,
+  photoAddButton: {
+    width: 64,
+    height: 64,
     borderRadius: radii.md,
+    backgroundColor: colors.sandMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  photoButtonText: {
+  amenityGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  amenityChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.full,
+    backgroundColor: colors.sandMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  amenityChipActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  amenityChipText: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.medium,
-    color: colors.accentStrong,
+    color: colors.textSecondary,
+  },
+  amenityChipTextActive: {
+    color: colors.textOnAccent,
+  },
+  detailsSection: {
+    gap: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  detailsSectionTitle: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: colors.textPrimary,
   },
   submitButton: {
     margin: spacing.lg,

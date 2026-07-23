@@ -50,6 +50,7 @@ export const COST_TYPE_LABELS: Record<CostType, string> = {
 export const GENDER_CATEGORY_LABELS: Record<GenderCategory, string> = {
   male: "Male",
   female: "Female",
+  male_female: "Male/female",
   all_gender: "All gender",
   family: "Family",
   accessible: "Accessible",

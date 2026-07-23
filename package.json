@@ -5,6 +5,7 @@
   "description": "Lav - a bathroom-based social map app. Monorepo root.",
   "scripts": {
     "dev": "pnpm --filter lav-mobile start",
+    "tunnel": "pnpm --filter lav-mobile tunnel",
     "ios": "pnpm --filter lav-mobile ios",
     "android": "pnpm --filter lav-mobile android",
     "web": "pnpm --filter lav-mobile web",
@@ -14,7 +15,11 @@
     "supabase:stop": "supabase stop",
     "supabase:reset": "supabase db reset",
     "supabase:push": "supabase db push",
-    "supabase:functions:deploy": "supabase functions deploy moderate-photo"
+    "supabase:functions:deploy": "supabase functions deploy moderate-photo",
+    "ingest:overpass": "tsx scripts/ingest-overpass-bathrooms.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2"
   },
   "engines": {
     "node": ">=20.0.0"

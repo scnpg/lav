@@ -12,13 +12,18 @@ import { SearchBar } from "../../src/components/map/SearchBar";
 import { SearchResultsDropdown } from "../../src/components/map/SearchResultsDropdown";
 import { EditBathroomModal } from "../../src/components/bathroom/EditBathroomModal";
 import { RateBathroomModal } from "../../src/components/bathroom/RateBathroomModal";
+import { ArabesqueLoader } from "../../src/components/ArabesqueLoader";
+import { LavLogo } from "../../src/components/LavLogo";
+import { PressableScale } from "../../src/components/PressableScale";
 import { getBathroomById, getBathroomsInBounds, type MapBounds } from "../../src/features/bathrooms/api";
 import { getBathroomReviewStats } from "../../src/features/bathrooms/ratingsApi";
 import { searchBathrooms } from "../../src/features/bathrooms/search";
+import { searchPlaces, type PlaceResult } from "../../src/features/places/search";
 import { useLiveLocation } from "../../src/hooks/useLiveLocation";
 import { useAuth } from "../../src/lib/auth";
+import { loadCachedBathrooms, saveCachedBathrooms } from "../../src/lib/bathroomCache";
 import { haversineDistanceMeters } from "../../src/lib/geo";
-import { cardShadow, colors, fontSize, radii, spacing } from "../../src/theme";
+import { cardShadow, colors, fontSize, fontWeight, radii, spacing } from "../../src/theme";
 import type { BathroomNearby, BathroomPublic, BathroomReview } from "../../src/types/database";
 
 const FILTER_OPTIONS: FilterOption[] = [
@@ -46,7 +51,10 @@ export default function MapScreen() {
   const [bathrooms, setBathrooms] = useState<BathroomNearby[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showingCachedBathrooms, setShowingCachedBathrooms] = useState(false);
   const [searchText, setSearchText] = useState("");
+  const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
+  const [placesLoading, setPlacesLoading] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusRequest, setFocusRequest] = useState<{ id: string; token: number } | null>(null);
@@ -93,8 +101,30 @@ export default function MapScreen() {
 
   const { user } = useAuth();
   const router = useRouter();
-  const { focusBathroomId } = useLocalSearchParams<{ focusBathroomId?: string }>();
+  const { focusBathroomId, focusLat, focusLng } = useLocalSearchParams<{
+    focusBathroomId?: string;
+    focusLat?: string;
+    focusLng?: string;
+  }>();
   const { status: locationStatus, coords: userLocation } = useLiveLocation();
+
+  // Paint something immediately from the last successful viewport fetch
+  // (persisted across app restarts) instead of a blank map while the real
+  // bounds-based fetch below is still in flight - most valuable on a slow
+  // connection, where that first round-trip can take a while. Purely a
+  // placeholder: the real fetch (scoped to whatever the map actually
+  // reports as its viewport) always wins once it resolves, whether that's
+  // success or the same-cache fallback inside loadBathroomsInBounds.
+  useEffect(() => {
+    let cancelled = false;
+    loadCachedBathrooms().then((cached) => {
+      if (cancelled || !cached || cached.bathrooms.length === 0) return;
+      setBathrooms((prev) => (prev.length > 0 ? prev : cached.bathrooms));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Jumps the camera to a bathroom tapped on the Lists tab (see
   // app/(tabs)/lists.tsx) - fetches its coordinate directly rather than
@@ -126,6 +156,23 @@ export default function MapScreen() {
       cancelled = true;
     };
   }, [focusBathroomId, router]);
+
+  // Same idea as focusBathroomId above, for a place tapped on the new
+  // Search tab (see app/(tabs)/search.tsx) - a place has no bathroom row to
+  // select, just somewhere to fly the camera to, so this skips straight to
+  // setFlyToRequest instead of a fetch-then-select round-trip.
+  useEffect(() => {
+    if (!focusLat || !focusLng) return;
+    router.setParams({ focusLat: undefined, focusLng: undefined });
+    const latitude = Number(focusLat);
+    const longitude = Number(focusLng);
+    if (Number.isNaN(latitude) || Number.isNaN(longitude)) return;
+    setSearchText("");
+    setActiveFilters(new Set());
+    setGroupSheetIds(null);
+    setSelectedId(null);
+    setFlyToRequest({ latitude, longitude, token: Date.now() });
+  }, [focusLat, focusLng, router]);
 
   // Once the bounds-fetch triggered by the flyTo above actually brings the
   // target bathroom into `bathrooms`, select it so its card opens - can't
@@ -170,9 +217,23 @@ export default function MapScreen() {
     setLoadError(null);
     try {
       const inView = await getBathroomsInBounds(bounds);
-      setBathrooms(inView.map((b) => ({ ...b, distance_meters: 0 })));
+      const withDistance = inView.map((b) => ({ ...b, distance_meters: 0 }));
+      setBathrooms(withDistance);
+      setShowingCachedBathrooms(false);
+      saveCachedBathrooms(withDistance, bounds);
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : "Couldn't load bathrooms.");
+      // Poor/no connectivity: fall back to whatever this viewport last
+      // successfully fetched (persisted to AsyncStorage, so it survives an
+      // app restart too) rather than leaving the map blank. Only overrides
+      // pins already on screen from an earlier successful fetch this
+      // session - those stay put either way since nothing here clears them.
+      const cached = await loadCachedBathrooms();
+      if (cached && cached.bathrooms.length > 0) {
+        setBathrooms(cached.bathrooms);
+        setShowingCachedBathrooms(true);
+      } else {
+        setLoadError(err instanceof Error ? err.message : "Couldn't load bathrooms.");
+      }
     } finally {
       setLoading(false);
     }
@@ -264,6 +325,38 @@ export default function MapScreen() {
     return isSearching ? searchBathrooms(filteredByChips, trimmedQuery) : filteredByChips;
   }, [filteredByChips, isSearching, trimmedQuery]);
 
+  // Debounced Nominatim lookup for streets/districts/landmarks/etc - see
+  // src/features/places/search.ts. Debounced (not fired per keystroke) both
+  // to respect Nominatim's rate-limit guidance and so a fast typist doesn't
+  // pile up requests; the AbortController cancels a still-in-flight request
+  // if the query changes again before it resolves, so a slow response for an
+  // old query can never overwrite results for what's currently typed.
+  useEffect(() => {
+    if (!isSearching) {
+      setPlaceResults([]);
+      setPlacesLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setPlacesLoading(true);
+    const timer = setTimeout(() => {
+      searchPlaces(trimmedQuery, controller.signal)
+        .then((results) => {
+          setPlaceResults(results);
+          setPlacesLoading(false);
+        })
+        .catch((err) => {
+          if (err instanceof Error && err.name === "AbortError") return;
+          setPlaceResults([]);
+          setPlacesLoading(false);
+        });
+    }, 400);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [isSearching, trimmedQuery]);
+
   const selectedBathroom = visibleBathrooms.find((b) => b.id === selectedId) ?? null;
   const groupSheetBathrooms = groupSheetIds
     ? visibleBathrooms.filter((b) => groupSheetIds.includes(b.id))
@@ -277,6 +370,16 @@ export default function MapScreen() {
   function handleSelectFromDropdown(id: string) {
     selectBathroom(id);
     setSearchText("");
+  }
+
+  // Unlike a bathroom result, a place isn't a pin already loaded in
+  // `bathrooms` - there's nothing to select, just somewhere to fly the
+  // camera to. The viewport-based fetch effect picks up from there once
+  // MapView reports the new bounds, the same as panning there by hand would.
+  function handleSelectPlace(place: PlaceResult) {
+    setSearchText("");
+    setSelectedId(null);
+    setFlyToRequest({ latitude: place.latitude, longitude: place.longitude, token: Date.now() });
   }
 
   function handleSelectFromGroup(id: string) {
@@ -327,15 +430,16 @@ export default function MapScreen() {
   // stuck at whatever it loaded with until the next viewport refetch. Two
   // steps: an instant optimistic bump to the just-submitted score (so the
   // badge updates the moment the sheet closes, no round-trip wait), then a
-  // quiet reconciliation against the real multi-reviewer average a moment
-  // later. Neither step touches selectedId/mapBounds/camera state, so this
-  // never triggers a refetch of the viewport or a camera move.
+  // quiet reconciliation against the real multi-reviewer mode a moment
+  // later (bathrooms.overall_score and this RPC both switched from average
+  // to mode - see 0028/0029). Neither step touches selectedId/mapBounds/camera
+  // state, so this never triggers a refetch of the viewport or a camera move.
   function handleReviewSaved(bathroomId: string, review: BathroomReview) {
     setBathrooms((prev) => prev.map((b) => (b.id === bathroomId ? { ...b, overall_score: review.overall_rating } : b)));
     getBathroomReviewStats(bathroomId).then((stats) => {
-      if (stats.avg_overall === null) return;
+      if (stats.overall_mode === null) return;
       setBathrooms((prev) =>
-        prev.map((b) => (b.id === bathroomId ? { ...b, overall_score: stats.avg_overall! } : b))
+        prev.map((b) => (b.id === bathroomId ? { ...b, overall_score: stats.overall_mode! } : b))
       );
     });
   }
@@ -343,9 +447,16 @@ export default function MapScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <View style={styles.topControls}>
+        <LavLogo size={22} />
         <SearchBar value={searchText} onChangeText={handleSearchTextChange} />
         {isSearching ? (
-          <SearchResultsDropdown results={visibleBathrooms} onSelect={handleSelectFromDropdown} />
+          <SearchResultsDropdown
+            results={visibleBathrooms}
+            places={placeResults}
+            placesLoading={placesLoading}
+            onSelect={handleSelectFromDropdown}
+            onSelectPlace={handleSelectPlace}
+          />
         ) : (
           <View style={styles.filtersRow}>
             <FilterChips options={FILTER_OPTIONS} activeKeys={activeFilters} onToggle={toggleFilter} />
@@ -381,7 +492,7 @@ export default function MapScreen() {
           </View>
         ) : loading ? (
           <View style={styles.overlayBanner} pointerEvents="none">
-            <ActivityIndicator color={colors.accentStrong} />
+            <ArabesqueLoader size={20} color={colors.accentStrong} />
             <Text style={styles.overlayBannerText}>Loading bathrooms...</Text>
           </View>
         ) : loadError ? (
@@ -390,6 +501,11 @@ export default function MapScreen() {
             <Pressable onPress={handleRetry}>
               <Text style={styles.retryText}>Retry</Text>
             </Pressable>
+          </View>
+        ) : showingCachedBathrooms ? (
+          <View style={styles.overlayBanner} pointerEvents="none">
+            <Ionicons name="cloud-offline-outline" size={16} color={colors.textSecondary} />
+            <Text style={styles.overlayBannerText}>Showing saved results - poor connection</Text>
           </View>
         ) : null}
 
@@ -411,8 +527,9 @@ export default function MapScreen() {
           )}
         </Pressable>
 
-        <Pressable
+        <PressableScale
           style={[styles.addButton, cardShadow("md")]}
+          borderRadius={radii.md}
           onPress={() => {
             setSelectedId(null);
             setGroupSheetIds(null);
@@ -422,8 +539,9 @@ export default function MapScreen() {
           accessibilityRole="button"
           accessibilityLabel="Add a new bathroom"
         >
-          <Ionicons name="add" size={26} color={colors.textOnAccent} />
-        </Pressable>
+          <Ionicons name="add" size={18} color={colors.textOnAccent} />
+          <Text style={styles.addButtonText}>Submit</Text>
+        </PressableScale>
       </View>
 
       {groupSheetIds ? (
@@ -440,8 +558,7 @@ export default function MapScreen() {
         />
       ) : ratingBathroom ? (
         <RateBathroomModal
-          bathroomId={ratingBathroom.id}
-          bathroomName={ratingBathroom.name}
+          bathroom={ratingBathroom}
           onClose={() => setRatingBathroom(null)}
           onSaved={(review) => handleReviewSaved(ratingBathroom.id, review)}
         />
@@ -489,12 +606,20 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: spacing.lg,
     left: spacing.lg,
-    width: 52,
-    height: 52,
-    borderRadius: radii.full,
-    backgroundColor: colors.accent,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 6,
+    height: 40,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: colors.accent,
+    borderWidth: 2,
+    borderColor: colors.surface,
+  },
+  addButtonText: {
+    color: colors.textOnAccent,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
   },
   overlayBanner: {
     position: "absolute",

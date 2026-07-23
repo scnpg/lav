@@ -7,7 +7,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "backgroundColor": "#FAFAF8",
+    "backgroundColor": "#FDFBF7",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.lav.mobile",
@@ -39,7 +39,7 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 160,
           "resizeMode": "contain",
-          "backgroundColor": "#FAFAF8"
+          "backgroundColor": "#FDFBF7"
         }
       ],
       [

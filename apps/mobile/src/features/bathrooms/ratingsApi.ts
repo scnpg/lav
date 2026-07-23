@@ -42,14 +42,14 @@ export async function getMyReview(bathroomId: string, userId: string): Promise<B
 
 const EMPTY_STATS: BathroomReviewStats = {
   review_count: 0,
-  avg_overall: null,
+  overall_mode: null,
   avg_cleanliness: null,
   avg_smell: null,
   avg_ambience: null,
   avg_privacy: null,
 };
 
-/** Live-computed averages (see get_bathroom_review_stats() in 0016) - never denormalized onto bathrooms, this is a single indexed-bathroom_id lookup regardless of table size. */
+/** Live-computed stats (see get_bathroom_review_stats() in 0016/0029) - never denormalized onto bathrooms, this is a single indexed-bathroom_id lookup regardless of table size. overall_mode is the statistical mode, matching bathrooms.overall_score; the rest stay plain averages. */
 export async function getBathroomReviewStats(bathroomId: string): Promise<BathroomReviewStats> {
   const { data, error } = await supabase.rpc("get_bathroom_review_stats", { target_bathroom_id: bathroomId });
   if (error) throw new Error(error.message);
@@ -80,7 +80,7 @@ export async function getMyReviews(userId: string): Promise<BathroomReview[]> {
 }
 
 export interface LoggedBathroom extends BathroomReview {
-  bathroom: Pick<BathroomPublic, "id" | "name" | "venue_name"> | null;
+  bathroom: Pick<BathroomPublic, "id" | "name" | "venue_name" | "latitude" | "longitude"> | null;
 }
 
 /** Powers Profile's "Been There" leaderboard - sorted by the rating itself (highest first), not recency. */
@@ -96,7 +96,7 @@ export async function getMyLoggedBathrooms(userId: string): Promise<LoggedBathro
   const bathroomIds = [...new Set(reviewRows.map((r) => r.bathroom_id))];
   const { data: bathroomRows, error: bathroomError } = await supabase
     .from("bathrooms")
-    .select("id, name, venue_name")
+    .select("id, name, venue_name, latitude, longitude")
     .in("id", bathroomIds);
   if (bathroomError) throw new Error(bathroomError.message);
   const bathroomsById = new Map((bathroomRows ?? []).map((b) => [b.id, b]));

@@ -9,7 +9,7 @@ interface SearchBarProps {
   placeholder?: string;
 }
 
-export function SearchBar({ value, onChangeText, placeholder = "Search bathrooms, venues, neighborhoods" }: SearchBarProps) {
+export function SearchBar({ value, onChangeText, placeholder = "Search bathrooms, streets, landmarks..." }: SearchBarProps) {
   return (
     <View style={styles.container} accessibilityRole="search">
       <Ionicons name="search" size={18} color={colors.textMuted} />
@@ -22,7 +22,7 @@ export function SearchBar({ value, onChangeText, placeholder = "Search bathrooms
         autoCorrect={false}
         autoCapitalize="none"
         returnKeyType="search"
-        accessibilityLabel="Search bathrooms by name, venue, or neighborhood"
+        accessibilityLabel="Search bathrooms, or places like streets, landmarks, and neighborhoods"
         accessibilityHint="Results update the map and a list below as you type"
       />
       {value.length > 0 ? (

@@ -4,7 +4,7 @@ import { LngLatBounds, Marker, MapLibreMap, NavigationControl, setRTLTextPlugin 
 import Supercluster from "supercluster";
 
 import { DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, IS_USING_FALLBACK_MAP_STYLE, MAP_STYLE_URL } from "../../lib/mapStyle";
-import { applyOasisMapTheme } from "../../lib/mapTheme";
+import { applyLavMapTheme } from "../../lib/mapTheme";
 import { colors, fontSize, fontWeight, radii } from "../../theme";
 import type { BathroomNearby } from "../../types/database";
 
@@ -474,7 +474,7 @@ export function MapView({
       // Liberty's base style isn't ours to edit at the source - recolor it
       // toward the oasis palette once it's actually loaded. See mapTheme.ts.
       map.once("load", () => {
-        applyOasisMapTheme(map!);
+        applyLavMapTheme(map!);
         renderClusters();
         reportRegion(); // initial viewport - triggers the first bounds-scoped fetch
       });

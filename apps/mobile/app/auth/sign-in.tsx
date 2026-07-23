@@ -3,7 +3,8 @@ import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Wordmark } from "../../src/components/Wordmark";
+import { ArabesquePattern } from "../../src/components/ArabesquePattern";
+import { LavLogo } from "../../src/components/LavLogo";
 import { useAuth } from "../../src/lib/auth";
 import { colors, fontSize, fontWeight, lineHeight, radii, spacing } from "../../src/theme";
 
@@ -27,8 +28,11 @@ export default function SignInScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
+      <View style={styles.patternLayer} pointerEvents="none">
+        <ArabesquePattern rows={14} columns={7} starSize={22} gap={16} opacity={0.05} />
+      </View>
       <View style={styles.content}>
-        <Wordmark size={32} />
+        <LavLogo size={32} />
         <Text style={styles.description}>Sign in to find bathrooms near you.</Text>
 
         <View style={styles.form}>
@@ -82,6 +86,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  patternLayer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
   },
   content: {
     flex: 1,

@@ -220,7 +220,7 @@ export interface BathroomReview {
 
 export interface BathroomReviewStats {
   review_count: number;
-  avg_overall: number | null;
+  overall_mode: number | null;
   avg_cleanliness: number | null;
   avg_smell: number | null;
   avg_ambience: number | null;

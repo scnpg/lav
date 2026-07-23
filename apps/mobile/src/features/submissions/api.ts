@@ -1,6 +1,6 @@
 import { supabase } from "../../lib/supabase";
 import type { BathroomSubmission } from "../../types/database";
-import type { AccessType, AmenitiesMap } from "../../types/enums";
+import type { AccessType, AmenitiesMap, CostType, GenderCategory, ToiletType } from "../../types/enums";
 
 // The moderation queue (0023_social_and_submissions.sql) - deliberately
 // separate from submitBathroom()/updateBathroomDetails() in
@@ -17,6 +17,9 @@ import type { AccessType, AmenitiesMap } from "../../types/enums";
 export interface SubmissionDetails {
   amenities?: AmenitiesMap;
   access_type?: AccessType | null;
+  cost_type?: CostType | null;
+  gender_category?: GenderCategory | null;
+  toilet_type?: ToiletType | null;
   photo_urls?: string[];
   [key: string]: unknown;
 }
@@ -28,6 +31,9 @@ export interface NewPinSubmissionInput {
   longitude: number;
   amenities?: AmenitiesMap;
   accessType?: AccessType | null;
+  costType?: CostType | null;
+  genderCategory?: GenderCategory | null;
+  toiletType?: ToiletType | null;
   photoUrls?: string[];
 }
 
@@ -35,6 +41,9 @@ export async function submitNewBathroom(input: NewPinSubmissionInput): Promise<B
   const details: SubmissionDetails = {
     amenities: input.amenities ?? {},
     access_type: input.accessType ?? null,
+    cost_type: input.costType ?? null,
+    gender_category: input.genderCategory ?? null,
+    toilet_type: input.toiletType ?? null,
     photo_urls: input.photoUrls ?? [],
   };
   const { data, error } = await supabase
@@ -59,6 +68,9 @@ export interface BathroomAmendmentInput {
   name?: string;
   amenities?: AmenitiesMap;
   accessType?: AccessType | null;
+  costType?: CostType | null;
+  genderCategory?: GenderCategory | null;
+  toiletType?: ToiletType | null;
   photoUrls?: string[];
 }
 
@@ -66,6 +78,9 @@ export async function submitBathroomAmendment(input: BathroomAmendmentInput): Pr
   const details: SubmissionDetails = {
     amenities: input.amenities ?? {},
     access_type: input.accessType,
+    cost_type: input.costType,
+    gender_category: input.genderCategory,
+    toilet_type: input.toiletType,
     photo_urls: input.photoUrls ?? [],
   };
   const { data, error } = await supabase

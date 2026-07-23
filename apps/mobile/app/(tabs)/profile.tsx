@@ -6,10 +6,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ArabesqueLoader } from "../../src/components/ArabesqueLoader";
+import { FloralBloom } from "../../src/components/ArabesquePattern";
+import { LavLogo } from "../../src/components/LavLogo";
 import { LevelBadge } from "../../src/components/LevelBadge";
+import { LevelProgressBar } from "../../src/components/LevelProgressBar";
+import { LoggedBathroomsMap } from "../../src/components/LoggedBathroomsMap";
 import { ACCESS_TYPE_LABELS, COST_TYPE_LABELS } from "../../src/constants/enumLabels";
 import { getSavedBathrooms, toggleBookmark } from "../../src/features/bathrooms/api";
 import { getMyLoggedBathrooms, type LoggedBathroom } from "../../src/features/bathrooms/ratingsApi";
+import { getFriendIds } from "../../src/features/friends/api";
 import { getListItemCounts, getListsForUser } from "../../src/features/lists/api";
 import { useAuth } from "../../src/lib/auth";
 import { uploadAvatar } from "../../src/lib/profiles";
@@ -63,23 +69,27 @@ export default function ProfileScreen() {
   const [savedBathrooms, setSavedBathrooms] = useState<BathroomPublic[]>([]);
   const [collections, setCollections] = useState<BathroomList[]>([]);
   const [collectionCounts, setCollectionCounts] = useState<Map<string, number>>(new Map());
+  const [friendCount, setFriendCount] = useState(0);
   const [listsLoading, setListsLoading] = useState(true);
   const [listsError, setListsError] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [showLoggedMap, setShowLoggedMap] = useState(false);
 
   const loadLists = useCallback(async () => {
     if (!user) return;
     setListsLoading(true);
     setListsError(null);
     try {
-      const [logged, saved, lists] = await Promise.all([
+      const [logged, saved, lists, friendIds] = await Promise.all([
         getMyLoggedBathrooms(user.id),
         getSavedBathrooms(user.id),
         getListsForUser(user.id),
+        getFriendIds(user.id),
       ]);
       setLoggedBathrooms(logged);
       setSavedBathrooms(saved);
       setCollections(lists);
+      setFriendCount(friendIds.length);
       setCollectionCounts(await getListItemCounts(lists.map((l) => l.id)));
     } catch (err) {
       setListsError(err instanceof Error ? err.message : "Couldn't load your activity.");
@@ -197,7 +207,7 @@ export default function ProfileScreen() {
     return (
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         <View style={styles.centerContent}>
-          <ActivityIndicator color={colors.accentStrong} />
+          <ArabesqueLoader size={40} color={colors.accentStrong} />
         </View>
       </SafeAreaView>
     );
@@ -219,6 +229,9 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <View style={styles.screenHeader}>
+        <LavLogo size={22} />
+      </View>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.contentInner}>
           <View style={[styles.card, cardShadow("sm")]}>
@@ -289,6 +302,7 @@ export default function ProfileScreen() {
                       {points} point{points === 1 ? "" : "s"}
                     </Text>
                   </View>
+                  <LevelProgressBar points={points} level={profile.level} />
                 </View>
               </View>
 
@@ -305,10 +319,16 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.statsRow}>
-              <View style={styles.statBlock}>
+              <Pressable
+                style={styles.statBlock}
+                onPress={() => loggedBathrooms.length > 0 && setShowLoggedMap(true)}
+                disabled={loggedBathrooms.length === 0}
+                accessibilityRole="button"
+                accessibilityLabel="View logged bathrooms on a map"
+              >
                 <Text style={styles.statValue}>{loggedBathrooms.length}</Text>
                 <Text style={styles.statLabel}>Logged</Text>
-              </View>
+              </Pressable>
               <View style={styles.statDivider} />
               <View style={styles.statBlock}>
                 <View style={styles.statValueRow}>
@@ -321,6 +341,11 @@ export default function ProfileScreen() {
               <View style={styles.statBlock}>
                 <Text style={styles.statValue}>{savedBathrooms.length}</Text>
                 <Text style={styles.statLabel}>Want to go</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statBlock}>
+                <Text style={styles.statValue}>{friendCount}</Text>
+                <Text style={styles.statLabel}>Friends</Text>
               </View>
             </View>
 
@@ -381,7 +406,7 @@ export default function ProfileScreen() {
 
             {listsLoading ? (
               <View style={styles.listLoading}>
-                <ActivityIndicator color={colors.accentStrong} />
+                <ArabesqueLoader size={28} color={colors.accentStrong} />
               </View>
             ) : listsError ? (
               <View style={styles.listLoading}>
@@ -392,9 +417,12 @@ export default function ProfileScreen() {
               </View>
             ) : activeTab === "been_there" ? (
               loggedBathrooms.length === 0 ? (
-                <Text style={styles.emptyListText}>
-                  Nothing logged yet - use "Rate & log" on a bathroom to start your leaderboard.
-                </Text>
+                <View style={styles.emptyState}>
+                  <FloralBloom size={32} color={colors.borderStrong} />
+                  <Text style={styles.emptyListText}>
+                    Nothing logged yet - use "Rate & log" on a bathroom to start your leaderboard.
+                  </Text>
+                </View>
               ) : (
                 <View style={styles.listGap}>
                   {loggedBathrooms.map((review, index) => (
@@ -424,9 +452,12 @@ export default function ProfileScreen() {
               )
             ) : activeTab === "want_to_go" ? (
               savedBathrooms.length === 0 ? (
-                <Text style={styles.emptyListText}>
-                  Nothing saved yet - tap the heart on a bathroom's card on the map to bookmark it.
-                </Text>
+                <View style={styles.emptyState}>
+                  <FloralBloom size={32} color={colors.borderStrong} />
+                  <Text style={styles.emptyListText}>
+                    Nothing saved yet - tap the heart on a bathroom's card on the map to bookmark it.
+                  </Text>
+                </View>
               ) : (
               <View style={styles.listGap}>
                 {savedBathrooms.map((bathroom) => (
@@ -474,7 +505,10 @@ export default function ProfileScreen() {
               </View>
               )
             ) : collections.length === 0 ? (
-              <Text style={styles.emptyListText}>No collections yet - save a bathroom to one to create it.</Text>
+              <View style={styles.emptyState}>
+                <FloralBloom size={32} color={colors.borderStrong} />
+                <Text style={styles.emptyListText}>No collections yet - save a bathroom to one to create it.</Text>
+              </View>
             ) : (
               <View style={styles.listGap}>
                 {collections.map((list) => (
@@ -504,6 +538,24 @@ export default function ProfileScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {showLoggedMap ? (
+        <LoggedBathroomsMap
+          bathrooms={loggedBathrooms
+            .filter((r) => r.bathroom)
+            .map((r) => ({
+              id: r.bathroom!.id,
+              name: r.bathroom!.name,
+              latitude: r.bathroom!.latitude,
+              longitude: r.bathroom!.longitude,
+            }))}
+          onClose={() => setShowLoggedMap(false)}
+          onSelectBathroom={(id) => {
+            setShowLoggedMap(false);
+            handleOpenBathroom(id);
+          }}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -517,6 +569,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+  screenHeader: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
   },
   scrollContent: {
     alignItems: "center",
@@ -726,12 +782,17 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.semibold,
     color: colors.accentStrong,
   },
+  emptyState: {
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingTop: spacing.md,
+  },
   emptyListText: {
     fontSize: fontSize.sm,
     color: colors.textSecondary,
     textAlign: "center",
-    paddingVertical: spacing.xl,
     paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xl,
   },
   listGap: {
     gap: spacing.sm,

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { LoadingScreen } from "../src/components/LoadingScreen";
 import { AuthProvider, useAuth } from "../src/lib/auth";
 import { colors } from "../src/theme";
 
@@ -55,8 +56,18 @@ function AuthGatedStack() {
     }
   }, [session, profile, loading, segments, pathname, router]);
 
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: colors.background },
+        animation: "slide_from_right",
+      }}
+    >
       <Stack.Screen name="(tabs)" />
       <Stack.Screen
         name="auth/sign-in"

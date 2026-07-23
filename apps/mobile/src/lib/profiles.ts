@@ -17,6 +17,30 @@ export async function getPublicProfile(userId: string): Promise<Profile | null> 
 }
 
 /**
+ * Username/display-name search - a plain PostgREST query, not an RPC:
+ * `profiles_select_all_authenticated` (0006_rls.sql) already lets any
+ * signed-in user read every profile, the same policy getPublicProfile
+ * above already relies on. `excludeUserId` drops the caller's own row from
+ * results (searching yourself isn't a useful outcome), and is optional so
+ * signed-out callers - who still shouldn't exist here since search itself
+ * requires auth, but just in case - don't need to pass anything.
+ */
+export async function searchUsers(query: string, excludeUserId?: string): Promise<ProfileLite[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+  let request = supabase
+    .from("profiles")
+    .select("id, username, display_name, avatar_url, level")
+    .or(`username.ilike.%${trimmed}%,display_name.ilike.%${trimmed}%`)
+    .order("username", { ascending: true })
+    .limit(10);
+  if (excludeUserId) request = request.neq("id", excludeUserId);
+  const { data, error } = await request;
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+/**
  * Uploads a locally-picked photo (expo-image-picker's asset.uri - a file://
  * URI on native, blob:/data: on web) as the caller's avatar and points
  * profiles.avatar_url at it. Fixed filename (not one-per-upload) with
