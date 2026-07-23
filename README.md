@@ -495,19 +495,84 @@ pnpm dev          # equivalent to: pnpm --filter lav-mobile start
 build at all.
 
 Because `@maplibre/maplibre-react-native` is a native module, **plain Expo Go will not work** for
-the Map tab or the submission wizard on iOS/Android — you'll need a custom dev client:
+the Map tab or the submission wizard on either platform — you'll need a custom dev client. How you
+build one differs by platform.
+
+### iOS
+
+**With a Mac (Xcode installed):**
 
 ```bash
 cd apps/mobile
 npx expo prebuild          # generates ios/ and android/ native projects (gitignored)
-npx expo run:ios           # or: npx expo run:android
+npx expo run:ios
 ```
 
-After the first `expo run:*`, subsequent iterations can use `expo start --dev-client` and reload
-in the installed dev client app instead of rebuilding every time. Note that a real interactive
-native map isn't wired up yet either way — see "Known gaps".
+This builds and installs locally over a cable (simulator or a connected physical device). A free
+Apple ID works for your own device via Xcode's "Personal Team" signing, but that provisioning
+profile expires every 7 days without a paid Apple Developer Program membership, so you'll need to
+rebuild/reinstall periodically.
 
-### Testing on a physical phone via Expo Go (tunnel mode)
+**Without a Mac — EAS Build (Expo's cloud build service):**
+
+```bash
+cd apps/mobile
+npx eas login                                    # one-time, needs a free Expo account
+npx eas device:create                             # registers your iPhone's UDID with Apple -
+                                                   # opens a page to open on the phone itself
+npx eas build --profile development --platform ios
+# or: pnpm build:ios:dev
+```
+
+The build runs on Expo's servers - no Xcode needed locally. When it finishes, `eas build` prints
+an install link (also emailed, and viewable at https://expo.dev under your project); open that
+link **on the iPhone itself** in Safari to install it, same as any ad-hoc distribution. Two real
+constraints worth knowing up front:
+
+- **Installing on a physical device (not just the iOS Simulator) requires enrolling in the paid
+  Apple Developer Program** (US $99/year) — this is Apple's device-provisioning rule, not
+  something EAS or this repo can route around. `eas device:create`/`eas build` will prompt you
+  through linking that account the first time.
+- The `development` profile (`apps/mobile/eas.json`) builds a **dev client** (bundles the Expo
+  dev-client runtime), not a production build — install it once, then use `expo start --dev-client`
+  or `pnpm tunnel` (below) for actual day-to-day development instead of rebuilding for every code
+  change. Only native-module changes (a new native dependency, an `app.json` plugin config change)
+  need a fresh `eas build`.
+
+### Android
+
+Android has none of iOS's device-provisioning friction — **no paid developer account, no device
+registration, no 7-day expiry.** Any Android device can install any APK you hand it (Settings may
+prompt to allow "install from this source" once).
+
+**Local build** (works on Windows/Mac/Linux, needs Android Studio + its SDK installed):
+
+```bash
+cd apps/mobile
+npx expo prebuild          # generates ios/ and android/ native projects (gitignored), if not done already
+npx expo run:android       # builds and installs on a connected/USB-debugging-enabled device or emulator
+```
+
+**EAS Build (no local Android Studio needed at all):**
+
+```bash
+cd apps/mobile
+npx eas login                                        # one-time, needs a free Expo account (skip if already done)
+npx eas build --profile development --platform android
+# or: pnpm build:android:dev
+```
+
+`eas.json`'s `development`/`preview` profiles are both set to `"buildType": "apk"` — a directly
+installable file, not the Play-Store-only `.aab` format EAS defaults to otherwise. When the build
+finishes, download the `.apk` from the link `eas build` prints (or https://expo.dev) straight onto
+the phone and open it to install - no App Store/Play Store step, no Safari-specific install flow
+like iOS's ad-hoc distribution.
+
+After the first build (either platform, either path), subsequent iterations can use
+`expo start --dev-client` and reload in the installed dev client app instead of rebuilding every
+time. Note that a real interactive native map isn't wired up yet either way — see "Known gaps".
+
+### Testing on a physical phone via tunnel mode
 
 ```bash
 pnpm tunnel       # equivalent to: pnpm --filter lav-mobile tunnel  ->  expo start --tunnel
@@ -515,7 +580,8 @@ pnpm tunnel       # equivalent to: pnpm --filter lav-mobile tunnel  ->  expo sta
 
 Use this when your phone can't reach your dev machine's LAN IP directly (different Wi-Fi/VPN,
 corporate network, etc.) — it proxies the Metro bundler through `@expo/ngrok` (already a
-devDependency here) so Expo Go can load the JS bundle from anywhere.
+devDependency here) so your dev client (or plain Expo Go, for the tabs that don't touch MapLibre -
+Feed/Search/Lists/Profile/auth) can load the JS bundle from anywhere.
 
 **This does not, by itself, make a local Supabase instance reachable from the phone.**
 `--tunnel` only proxies Metro's own dev-server traffic — it has no effect on the app's own runtime

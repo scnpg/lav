@@ -13,7 +13,8 @@
       "bundleIdentifier": "com.lav.mobile",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Lav uses your location only when you tap \"Use my location\", to find nearby bathrooms. Lav never stores or shares your live location.",
-        "NSPhotoLibraryUsageDescription": "Lav needs access to your photos so you can attach a picture to a bathroom submission or review."
+        "NSPhotoLibraryUsageDescription": "Lav needs access to your photos so you can attach a picture to a bathroom submission or review.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -25,7 +26,11 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -54,6 +59,12 @@
           "photosPermission": "Lav needs access to your photos so you can attach a picture to a bathroom submission or review."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "27530bd5-31fe-46f4-80c2-59f1e2c46601"
+      }
+    }
   }
 }
