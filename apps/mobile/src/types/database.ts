@@ -79,6 +79,9 @@ export interface BathroomPublic {
   verified_by: string | null;
   verified_at: string | null;
   last_verified_at: string | null;
+  /** Crowd name-consensus signal (0034_postgis_clustering_and_name_verification.sql) - set by process_bathroom_verification(), never by admin action. Distinct from `status`: this says "5+ people agree on this name", not "an admin confirmed this listing". */
+  name_verified: boolean;
+  name_verified_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -214,6 +217,9 @@ export interface BathroomReview {
   ambience_score: number | null;
   privacy_score: number | null;
   review_text: string | null;
+  /** Proposed description/access-notes update, one vote among all of a bathroom's reviews - see update_bathroom_linguistic_summary() (0035_review_details_and_tabbed_search.sql). Never displayed as-is; only the computed consensus on `bathrooms` is. */
+  description: string | null;
+  access_notes: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -250,6 +256,38 @@ export interface BathroomSuggestion {
   suggested_value: string;
   created_at: string;
   updated_at: string;
+}
+
+// One user's vote for a bathroom's name
+// (0034_postgis_clustering_and_name_verification.sql). A dedicated table,
+// not a reuse of bathroom_suggestions above - that one has no minimum-count/
+// consensus-threshold gate and also drives amenity consensus off the same
+// trigger, so bolting this feature's >=5-votes/>50%-majority rule onto it
+// would change amenity consensus too. unique(bathroom_id, user_id) at the DB
+// level means one row per voter; submit again to change your vote (upsert).
+export interface BathroomNameSubmission {
+  id: string;
+  bathroom_id: string;
+  user_id: string;
+  submitted_name: string;
+  created_at: string;
+}
+
+// One row per get_clustered_bathrooms() cluster - cluster_id is only unique
+// within a single call's result set (recomputed fresh every call for
+// whatever bbox was passed), never a stable id to persist across calls.
+export interface BathroomClusterMember {
+  id: string;
+  name: string;
+  floor: string | null;
+}
+
+export interface BathroomCluster {
+  cluster_id: number;
+  center_lat: number;
+  center_lng: number;
+  pin_count: number;
+  bathrooms: BathroomClusterMember[];
 }
 
 // One row per pair (0023_social_and_submissions.sql) - created by user_id
@@ -382,6 +420,11 @@ export interface Database {
         BathroomSubmission,
         Pick<BathroomSubmission, "user_id"> & Partial<Omit<BathroomSubmission, "user_id">>
       >;
+      bathroom_name_submissions: TableDef<
+        BathroomNameSubmission,
+        Pick<BathroomNameSubmission, "bathroom_id" | "user_id" | "submitted_name"> &
+          Partial<Omit<BathroomNameSubmission, "bathroom_id" | "user_id" | "submitted_name">>
+      >;
     };
     Views: Record<string, never>;
     Functions: {
@@ -412,6 +455,16 @@ export interface Database {
       get_bathroom_review_stats: {
         Args: { target_bathroom_id: string };
         Returns: BathroomReviewStats[];
+      };
+      get_clustered_bathrooms: {
+        Args: {
+          min_lat: number;
+          max_lat: number;
+          min_lng: number;
+          max_lng: number;
+          cluster_radius_meters?: number;
+        };
+        Returns: BathroomCluster[];
       };
     };
   };

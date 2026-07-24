@@ -21,6 +21,13 @@ export interface SubmissionDetails {
   gender_category?: GenderCategory | null;
   toilet_type?: ToiletType | null;
   photo_urls?: string[];
+  // Copied onto bathrooms.description/access_notes directly on admin
+  // approval (admin_approve_all_pending_submissions, 0035) - a human
+  // already reviewed it, so unlike bathroom_reviews' own description/
+  // access_notes columns, nothing here goes through the linguistic-average
+  // consensus pipeline.
+  description?: string | null;
+  access_notes?: string | null;
   [key: string]: unknown;
 }
 
@@ -35,6 +42,8 @@ export interface NewPinSubmissionInput {
   genderCategory?: GenderCategory | null;
   toiletType?: ToiletType | null;
   photoUrls?: string[];
+  description?: string | null;
+  accessNotes?: string | null;
 }
 
 export async function submitNewBathroom(input: NewPinSubmissionInput): Promise<BathroomSubmission> {
@@ -45,6 +54,8 @@ export async function submitNewBathroom(input: NewPinSubmissionInput): Promise<B
     gender_category: input.genderCategory ?? null,
     toilet_type: input.toiletType ?? null,
     photo_urls: input.photoUrls ?? [],
+    description: input.description ?? null,
+    access_notes: input.accessNotes ?? null,
   };
   const { data, error } = await supabase
     .from("bathroom_submissions")
@@ -72,6 +83,8 @@ export interface BathroomAmendmentInput {
   genderCategory?: GenderCategory | null;
   toiletType?: ToiletType | null;
   photoUrls?: string[];
+  description?: string | null;
+  accessNotes?: string | null;
 }
 
 export async function submitBathroomAmendment(input: BathroomAmendmentInput): Promise<BathroomSubmission> {
@@ -82,6 +95,8 @@ export async function submitBathroomAmendment(input: BathroomAmendmentInput): Pr
     gender_category: input.genderCategory,
     toilet_type: input.toiletType,
     photo_urls: input.photoUrls ?? [],
+    description: input.description,
+    access_notes: input.accessNotes,
   };
   const { data, error } = await supabase
     .from("bathroom_submissions")

@@ -1,6 +1,6 @@
 import { haversineDistanceMeters } from "../../lib/geo";
 import { supabase } from "../../lib/supabase";
-import type { BathroomNearby, BathroomPrivateFields, BathroomPublic } from "../../types/database";
+import type { BathroomCluster, BathroomNearby, BathroomPrivateFields, BathroomPublic } from "../../types/database";
 import type {
   AccessDifficulty,
   AccessType,
@@ -25,6 +25,7 @@ export const BATHROOM_PUBLIC_COLUMNS = `
   gender_category, toilet_type, amenities, tags, open_hours,
   cleanliness_score, safety_score, privacy_score, smell_score, prestige_score, overall_score,
   review_count, photo_count, submitted_by, verified_by, verified_at, last_verified_at,
+  name_verified, name_verified_at,
   created_at, updated_at
 `;
 
@@ -84,6 +85,29 @@ export async function getBathroomsInBounds(bounds: MapBounds): Promise<BathroomP
   const { data, error } = await query.limit(BOUNDS_QUERY_LIMIT);
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as BathroomPublic[];
+}
+
+/**
+ * Groups verified bathrooms within clusterRadiusMeters of each other (e.g.
+ * several restrooms in the same building) via get_clustered_bathrooms()
+ * (0034_postgis_clustering_and_name_verification.sql) - a ST_ClusterDBSCAN
+ * pass server-side, not a client-side reclustering of getBathroomsInBounds's
+ * result. Meant for a tight, building-scale viewport: the default 15m radius
+ * doesn't mean much over a city-wide bbox.
+ */
+export async function getClusteredBathrooms(
+  bounds: MapBounds,
+  clusterRadiusMeters = 15
+): Promise<BathroomCluster[]> {
+  const { data, error } = await supabase.rpc("get_clustered_bathrooms", {
+    min_lat: bounds.south,
+    max_lat: bounds.north,
+    min_lng: bounds.west,
+    max_lng: bounds.east,
+    cluster_radius_meters: clusterRadiusMeters,
+  });
+  if (error) throw new Error(error.message);
+  return data ?? [];
 }
 
 export async function getNearbyBathrooms(

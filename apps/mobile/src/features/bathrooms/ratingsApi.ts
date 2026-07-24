@@ -16,6 +16,9 @@ export interface UpsertReviewInput {
   ambience_score?: number | null;
   privacy_score?: number | null;
   review_text?: string | null;
+  /** Proposed description/access-notes for the bathroom itself, not commentary about the visit (that's review_text) - one vote toward update_bathroom_linguistic_summary()'s consensus, not applied directly. */
+  description?: string | null;
+  access_notes?: string | null;
 }
 
 /** Insert-or-update: bathroom_reviews has a unique(user_id, bathroom_id), so re-rating a place updates your existing row instead of creating a second one. */

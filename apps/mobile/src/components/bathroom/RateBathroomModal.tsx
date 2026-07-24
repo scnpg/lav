@@ -66,6 +66,8 @@ export function RateBathroomModal({ bathroom, onClose, onSaved }: RateBathroomMo
   const [ambience, setAmbience] = useState(0);
   const [privacy, setPrivacy] = useState(0);
   const [reviewText, setReviewText] = useState("");
+  const [suggestedDescription, setSuggestedDescription] = useState("");
+  const [suggestedAccessNotes, setSuggestedAccessNotes] = useState("");
   const [photoUris, setPhotoUris] = useState<string[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -98,6 +100,8 @@ export function RateBathroomModal({ bathroom, onClose, onSaved }: RateBathroomMo
         setAmbience(review.ambience_score ?? 0);
         setPrivacy(review.privacy_score ?? 0);
         setReviewText(review.review_text ?? "");
+        setSuggestedDescription(review.description ?? "");
+        setSuggestedAccessNotes(review.access_notes ?? "");
       }
       setLoadingExisting(false);
     });
@@ -141,6 +145,8 @@ export function RateBathroomModal({ bathroom, onClose, onSaved }: RateBathroomMo
         ambience_score: ambience || null,
         privacy_score: privacy || null,
         review_text: reviewText.trim() || null,
+        description: suggestedDescription.trim() || null,
+        access_notes: suggestedAccessNotes.trim() || null,
       });
       if (photoUris.length > 0) {
         setUploadingPhoto(true);
@@ -227,6 +233,33 @@ export function RateBathroomModal({ bathroom, onClose, onSaved }: RateBathroomMo
                 value={reviewText}
                 onChangeText={setReviewText}
                 placeholder="What stood out?"
+                placeholderTextColor={colors.textMuted}
+                style={styles.textArea}
+                multiline
+              />
+            </View>
+
+            <View style={styles.fieldBlock}>
+              <Text style={styles.fieldLabel}>Suggest a description</Text>
+              <Text style={styles.fieldHint}>
+                Combined with everyone else&apos;s to keep this bathroom&apos;s description accurate.
+              </Text>
+              <TextInput
+                value={suggestedDescription}
+                onChangeText={setSuggestedDescription}
+                placeholder="What should people know about this place?"
+                placeholderTextColor={colors.textMuted}
+                style={styles.textArea}
+                multiline
+              />
+            </View>
+
+            <View style={styles.fieldBlock}>
+              <Text style={styles.fieldLabel}>Suggest access instructions</Text>
+              <TextInput
+                value={suggestedAccessNotes}
+                onChangeText={setSuggestedAccessNotes}
+                placeholder="e.g. Ask bellhop for the key"
                 placeholderTextColor={colors.textMuted}
                 style={styles.textArea}
                 multiline
@@ -408,6 +441,11 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     fontWeight: fontWeight.medium,
     color: colors.textSecondary,
+  },
+  fieldHint: {
+    fontSize: fontSize.xs,
+    color: colors.textMuted,
+    marginTop: -2,
   },
   errorText: {
     fontSize: fontSize.xs,

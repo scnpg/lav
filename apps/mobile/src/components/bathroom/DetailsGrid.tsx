@@ -60,6 +60,9 @@ export function DetailsGrid({ bathroom }: DetailsGridProps) {
       <Text style={styles.sectionTitle}>Details</Text>
 
       <View style={styles.card}>
+        {bathroom.description ? (
+          <DetailRow icon="document-text-outline" label="Description" value={bathroom.description} />
+        ) : null}
         <DetailRow
           icon="water-outline"
           label="Toilet type"

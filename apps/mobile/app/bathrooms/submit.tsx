@@ -10,7 +10,7 @@ import { ArabesqueDivider } from "../../src/components/ArabesqueDivider";
 import { ArabesqueLoader } from "../../src/components/ArabesqueLoader";
 import { PressableScale } from "../../src/components/PressableScale";
 import { Toast } from "../../src/components/Toast";
-import { ChipSelectField } from "../../src/components/bathroom/EditableFieldControls";
+import { ChipSelectField, TextField } from "../../src/components/bathroom/EditableFieldControls";
 import { PinPickerMap } from "../../src/components/map/PinPickerMap";
 import { SearchBar } from "../../src/components/map/SearchBar";
 import { SearchResultsDropdown } from "../../src/components/map/SearchResultsDropdown";
@@ -75,6 +75,8 @@ export default function SubmitBathroomScreen() {
   const [costType, setCostType] = useState<CostType | null>(null);
   const [genderCategory, setGenderCategory] = useState<GenderCategory | null>(null);
   const [toiletType, setToiletType] = useState<ToiletType | null>(null);
+  const [description, setDescription] = useState("");
+  const [accessNotes, setAccessNotes] = useState("");
   const [photoUris, setPhotoUris] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
@@ -170,6 +172,8 @@ export default function SubmitBathroomScreen() {
         setCostType(bathroom.cost_type);
         setGenderCategory(bathroom.gender_category);
         setToiletType(bathroom.toilet_type);
+        setDescription(bathroom.description ?? "");
+        setAccessNotes(bathroom.access_notes ?? "");
       }
       setLoadingExisting(false);
     });
@@ -240,6 +244,8 @@ export default function SubmitBathroomScreen() {
           costType: costType !== (existingBathroom?.cost_type ?? null) ? costType : undefined,
           genderCategory: genderCategory !== (existingBathroom?.gender_category ?? null) ? genderCategory : undefined,
           toiletType: toiletType !== (existingBathroom?.toilet_type ?? null) ? toiletType : undefined,
+          description: description.trim() && description.trim() !== (existingBathroom?.description ?? "") ? description.trim() : undefined,
+          accessNotes: accessNotes.trim() && accessNotes.trim() !== (existingBathroom?.access_notes ?? "") ? accessNotes.trim() : undefined,
           photoUrls,
         });
       } else {
@@ -253,6 +259,8 @@ export default function SubmitBathroomScreen() {
           costType,
           genderCategory,
           toiletType,
+          description: description.trim() || null,
+          accessNotes: accessNotes.trim() || null,
           photoUrls,
         });
       }
@@ -370,6 +378,21 @@ export default function SubmitBathroomScreen() {
             );
           })}
         </View>
+
+        <TextField
+          label="Description"
+          value={description}
+          onChangeText={setDescription}
+          placeholder="What should people know?"
+          multiline
+        />
+        <TextField
+          label="Access instructions"
+          value={accessNotes}
+          onChangeText={setAccessNotes}
+          placeholder="e.g. Ask bellhop for the key"
+          multiline
+        />
 
         <Text style={styles.fieldLabel}>Photos</Text>
         <View style={styles.photoGrid}>

@@ -7,6 +7,8 @@ export interface ProfileLite {
   display_name: string | null;
   avatar_url: string | null;
   level: number;
+  /** Optional - only searchUsers() below fetches it (for the Search screen's People tab). attachAuthors() intentionally doesn't select it; every existing ProfileLite usage stays valid since this field is optional. */
+  bio?: string | null;
 }
 
 /** Read-only lookup for another user's public profile (cross-profile navigation). */
@@ -30,7 +32,7 @@ export async function searchUsers(query: string, excludeUserId?: string): Promis
   if (!trimmed) return [];
   let request = supabase
     .from("profiles")
-    .select("id, username, display_name, avatar_url, level")
+    .select("id, username, display_name, avatar_url, level, bio")
     .or(`username.ilike.%${trimmed}%,display_name.ilike.%${trimmed}%`)
     .order("username", { ascending: true })
     .limit(10);
