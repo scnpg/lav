@@ -21,14 +21,21 @@ export default function RootLayout() {
   );
 }
 
-// Everything requires sign-in (see 0006_rls.sql) - redirect to/from
-// auth/sign-in based on session state instead of gating each screen
-// individually. `loading` covers the initial supabase.auth.getSession()
-// round-trip, so we don't bounce a signed-in user to sign-in for a flash
-// before their session is restored from storage. A signed-in user whose
-// profile hasn't finished onboarding (see app/auth/onboarding.tsx) gets
-// routed there instead of the tabs - handle_new_user()'s auto-generated
-// username/display_name are meant as a fallback, not the end state.
+// Browsing (the map and every tab) works signed-out - bathrooms are
+// public/anon-readable data (see 0006_rls.sql), and this app is meant to be
+// useful to someone who just wants to find a bathroom without creating an
+// account first. Sign-in is only required for specific actions (adding/
+// editing/rating a bathroom, the Profile tab) - those screens/handlers gate
+// themselves individually (see e.g. handleOpenAddBathroom in
+// app/(tabs)/index.tsx, or the Profile screen's own redirect) rather than
+// this layout forcing every signed-out visitor straight to /auth/sign-in
+// before they see anything. `loading` covers the initial
+// supabase.auth.getSession() round-trip, so we don't bounce a signed-in
+// user to sign-in for a flash before their session is restored from
+// storage. A signed-in user whose profile hasn't finished onboarding (see
+// app/auth/onboarding.tsx) gets routed there instead of the tabs -
+// handle_new_user()'s auto-generated username/display_name are meant as a
+// fallback, not the end state.
 function AuthGatedStack() {
   const { session, profile, loading, isPasswordRecovery } = useAuth();
   const segments = useSegments();
@@ -50,10 +57,11 @@ function AuthGatedStack() {
       return;
     }
 
-    if (!session) {
-      if (!inAuthGroup) router.replace("/auth/sign-in");
-      return;
-    }
+    // No session, no redirect: the tabs (map/feed/search/lists) are
+    // browsable signed-out, and a signed-out visit to /auth/* (sign-in,
+    // sign-up, forgot-password) is exactly where they're supposed to be
+    // already - nothing to bounce them to or from.
+    if (!session) return;
 
     const needsOnboarding = !!profile && !profile.onboarding_completed;
     if (needsOnboarding) {

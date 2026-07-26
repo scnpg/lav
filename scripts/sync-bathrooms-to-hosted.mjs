@@ -70,6 +70,15 @@ async function fetchBatch(offset) {
   return res.json();
 }
 
+// Returns the number of rows actually accepted. A batch can fail for a
+// reason specific to ONE row in it - e.g. firewall_bathrooms() rejecting an
+// OSM place name that's genuine profanity/vandalism (confirmed: exactly this
+// happened for a row named "Bitch_isaak" around row 312000) - and PostgREST
+// rolls back the entire batch's insert when that happens, not just the bad
+// row. Rather than aborting the whole sync over one bad apple out of 350k+,
+// a rejected batch bisects itself and retries each half, isolating down to
+// the individual offending row(s) - which get logged and skipped - while
+// every unaffected row in the same batch still gets inserted.
 async function upsertBatch(rows) {
   // submitted_by/verified_by nulled here (not at the source query) so the
   // rest of the row still travels through untouched.
@@ -84,25 +93,37 @@ async function upsertBatch(rows) {
     },
     body: JSON.stringify(sanitized),
   });
-  if (!res.ok) throw new Error(`Dest upsert failed: ${res.status} ${await res.text()}`);
+  if (res.ok) return rows.length;
+
+  if (rows.length === 1) {
+    console.warn(`Skipping ${rows[0].id} (${JSON.stringify(rows[0].name)}): ${await res.text()}`);
+    return 0;
+  }
+  const mid = Math.floor(rows.length / 2);
+  const left = await upsertBatch(rows.slice(0, mid));
+  const right = await upsertBatch(rows.slice(mid));
+  return left + right;
 }
 
 async function main() {
-  let offset = 0;
+  const startOffsetArg = args.find((a) => a.startsWith("--start-offset="));
+  let offset = startOffsetArg ? Number(startOffsetArg.split("=")[1]) : 0;
   let total = 0;
+  let skipped = 0;
   for (;;) {
     const batch = await fetchBatch(offset);
     if (batch.length === 0) break;
-    await upsertBatch(batch);
-    total += batch.length;
+    const accepted = await upsertBatch(batch);
+    total += accepted;
+    skipped += batch.length - accepted;
     // Advance by what actually came back, not BATCH_SIZE: PostgREST caps a
     // single response at its own db-max-rows setting (1000 by default)
     // regardless of the Range requested, so a smaller-than-requested batch
     // does NOT mean "that was the last page" - only an empty batch does.
     offset += batch.length;
-    console.log(`Synced ${total} rows...`);
+    console.log(`Synced ${total} rows (skipped ${skipped})...`);
   }
-  console.log(`Done. ${total} rows synced to ${DEST_URL}.`);
+  console.log(`Done. ${total} rows synced to ${DEST_URL}, ${skipped} skipped.`);
 }
 
 main().catch((err) => {

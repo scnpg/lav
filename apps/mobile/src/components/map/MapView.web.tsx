@@ -476,9 +476,32 @@ export function MapView({
       map.once("load", () => {
         applyLavMapTheme(map!);
         renderClusters();
-        reportRegion(); // initial viewport - triggers the first bounds-scoped fetch
+        reportRegion();
       });
+      // Bug fix: reportRegion() was previously only called from the "load"
+      // handler above, tying the very first bathrooms fetch to the base map
+      // *style/tiles* finishing loading - a real network round trip with no
+      // logical connection to which bathrooms are in view. On a slow
+      // connection (or a style host having a bad day) this left the map
+      // showing "Loading bathrooms..." indefinitely even though the viewport
+      // bounds needed to fetch them are already known: center/zoom are set
+      // synchronously above, so map.getBounds() is valid immediately, before
+      // a single tile has been requested. Calling it here as well decouples
+      // "what's in view" from "has the basemap finished painting" - the
+      // "load" handler's own call becomes a harmless re-fetch of the same
+      // bounds (deduped naturally by the 300ms debounce in the Map screen's
+      // effect) rather than the only path to ever populating `bathrooms`.
+      //
+      // mapRef.current MUST be set before this call: reportRegion() (like
+      // renderClusters()) reads the map through mapRef.current, not through
+      // this closure's own `map` variable - calling it beforehand is a
+      // guaranteed no-op (its own `if (!map) return` guard, referring to the
+      // still-null ref, swallows it silently). Confirmed by direct testing:
+      // this exact ordering mistake was tried first and produced no request
+      // at all, no error either, just the same permanent "Loading
+      // bathrooms..." this whole fix is for.
       mapRef.current = map;
+      reportRegion();
     }
 
     function tryCreate() {
@@ -548,7 +571,17 @@ export function MapView({
     // an unrelated bathrooms-array change (e.g. search text getting cleared
     // after selecting a result) can't yank the camera out from under an
     // in-flight flyTo. See fitBoundsRequest prop comment.
-    if (map.loaded()) renderClusters();
+    //
+    // Deliberately NOT gated on map.loaded() (it used to be): renderClusters
+    // only reads map.getBounds()/getZoom() and adds DOM-based Marker
+    // elements - none of that needs the underlying style/tiles to have
+    // finished painting, same reasoning as reportRegion() above. Gating pin
+    // placement on "has the basemap image finished loading" meant bathrooms
+    // could arrive from the fetch (now firing immediately, see above) yet
+    // still never appear as pins if the style took a while - or, on at
+    // least one tested environment, never actually reported "loaded" at
+    // all, which left the map perpetually pin-less even with correct data.
+    renderClusters();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bathrooms]);
 
