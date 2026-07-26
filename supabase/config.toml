@@ -41,8 +41,17 @@ file_size_limit = "10MiB"
 
 [auth]
 enabled = true
+# Only affects local `supabase start` - the hosted project's real Site URL
+# lives in the Dashboard (or gets synced there via `supabase config push`,
+# which pushes this whole file - see the [auth.email.smtp] section below for
+# why that needs care). Kept as localhost here since local dev's redirect
+# should still point at the local Expo dev server, not the deployed site.
 site_url = "http://localhost:8081"
-additional_redirect_urls = ["exp://localhost:8081", "exp://127.0.0.1:8081"]
+additional_redirect_urls = [
+  "exp://localhost:8081",
+  "exp://127.0.0.1:8081",
+  "https://scnpg.github.io/lav/",
+]
 jwt_expiry = 3600
 
 
@@ -53,6 +62,51 @@ enable_signup = true
 # http://127.0.0.1:54324) before signInWithPassword succeeds. See
 # app/auth/sign-up.tsx's awaitingConfirmation state for the UI this drives.
 enable_confirmations = true
+
+# Resend as a real SMTP relay - see README "Email setup (Resend SMTP)".
+# Disabled by default: local dev should keep using [local_smtp]/Mailpit
+# above (fast, free, never sends a real email, and every confirmation link
+# is already captured at http://127.0.0.1:54324 without needing an inbox at
+# all). This section only matters for local `supabase start` - it has no
+# effect on a hosted project, which is configured separately via the
+# Dashboard (Project Settings > Authentication > SMTP Settings) since that's
+# the only thing that actually affects email real users receive. Flip
+# `enabled` to true here only if you specifically want to test real Resend
+# delivery against local dev.
+[auth.email.smtp]
+enabled = false
+host = "smtp.resend.com"
+port = 465
+user = "resend"
+# env(...) reads from supabase/.env (see supabase/.env.example) - the CLI
+# loads that file automatically. Never hardcode the real key here.
+pass = "env(RESEND_API_KEY)"
+# Must be an address at a domain you've verified in Resend - their shared
+# testing domain (onboarding@resend.dev) works for the API but lands in
+# spam/gets rejected for real recipients almost immediately. Replace this
+# placeholder once you've verified a domain.
+admin_email = "noreply@yourdomain.com"
+sender_name = "Lav App"
+
+# Only affects local `supabase start` (and only once [auth.email.smtp] above
+# is actually enabled - Supabase's local default mailer isn't rate-limited to
+# begin with, since it never leaves the box). Has NO effect on the hosted
+# project: hosted always uses Supabase's shared default mailer, which
+# enforces a hard, non-configurable 2-emails-per-hour cap on the ENTIRE
+# project (confirmed directly - a signup attempt returned HTTP 429
+# `over_email_send_rate_limit`, which blocks the whole request, not just the
+# email). There is no config.toml or dashboard rate-limit setting that lifts
+# that cap - the only real fix is configuring a real custom SMTP provider
+# (e.g. Resend, same as [auth.email.smtp] above) for the HOSTED project via
+# Dashboard > Project Settings > Authentication > SMTP Settings. Once that's
+# done, hosted rate limits become configurable too, and this section's
+# values would then apply there as guidance for what to set.
+[auth.rate_limit]
+# Number of emails that can be sent per hour, once a custom SMTP provider is
+# configured. Raise this from the Supabase default (2, meant for the shared
+# mailer) once Resend or similar is wired up - Resend's own free tier allows
+# far more than 2/hour.
+email_sent = 30
 
 [functions.moderate-photo]
 # Caller must be a signed-in user (the mobile app's anon-key + user JWT) -

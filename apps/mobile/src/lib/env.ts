@@ -2,18 +2,21 @@
 // build time (see .env.example) - importing through this module (instead of
 // reaching for process.env.* throughout the app) means there's exactly one
 // place that throws a clear error if setup was skipped.
-
-function readPublicEnv(name: string): string | undefined {
-  // process.env.EXPO_PUBLIC_* is statically replaced by Metro, so the key
-  // must be referenced as a literal property access somewhere for the
-  // inlining to work - this helper is only ever called with literals below.
-  return process.env[name];
-}
-
+//
+// Each var below MUST be a literal `process.env.EXPO_PUBLIC_X` member
+// expression, not routed through a helper that reads `process.env[name]`
+// dynamically (which this file used to do). Metro's static inliner only
+// pattern-matches the literal access point itself - it doesn't trace a
+// variable name back through a function call. The dynamic version happened
+// to still work in `expo start` (Metro's dev server exposes a real,
+// populated process.env object at runtime), which is why this went
+// unnoticed through everything tested locally - it only breaks in
+// `expo export`'s production bundle, which has no such runtime object and
+// relies entirely on the static replacement.
 export const env = {
-  supabaseUrl: readPublicEnv("EXPO_PUBLIC_SUPABASE_URL"),
-  supabaseAnonKey: readPublicEnv("EXPO_PUBLIC_SUPABASE_ANON_KEY"),
-  mapStyleUrl: readPublicEnv("EXPO_PUBLIC_MAP_STYLE_URL"),
+  supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
+  supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+  mapStyleUrl: process.env.EXPO_PUBLIC_MAP_STYLE_URL,
 };
 
 export function assertSupabaseEnv(): { url: string; anonKey: string } {

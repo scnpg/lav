@@ -8,22 +8,45 @@ import { LavLogo } from "../../src/components/LavLogo";
 import { useAuth } from "../../src/lib/auth";
 import { colors, fontSize, fontWeight, lineHeight, radii, spacing } from "../../src/theme";
 
-export default function SignInScreen() {
-  const { signInWithPassword } = useAuth();
+export default function ForgotPasswordScreen() {
+  const { requestPasswordReset } = useAuth();
   const router = useRouter();
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
 
   async function handleSubmit() {
-    if (!identifier.trim() || !password) return;
+    if (!email.trim()) return;
     setSubmitting(true);
     setError(null);
-    const { error: signInError } = await signInWithPassword(identifier.trim(), password);
+    const { error: resetError } = await requestPasswordReset(email.trim());
     setSubmitting(false);
-    if (signInError) setError(signInError);
-    // On success, the root layout's session-watching redirect takes it from here.
+    if (resetError) {
+      setError(resetError);
+      return;
+    }
+    setSent(true);
+  }
+
+  if (sent) {
+    return (
+      <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
+        <View style={styles.patternLayer} pointerEvents="none">
+          <ArabesquePattern rows={14} columns={7} starSize={22} gap={16} opacity={0.05} />
+        </View>
+        <View style={styles.content}>
+          <LavLogo size={32} />
+          <Text style={styles.description}>
+            If an account exists for {email.trim()}, a password reset link is on its way - check your inbox
+            (and spam folder).
+          </Text>
+          <Pressable style={styles.button} onPress={() => router.replace("/auth/sign-in")}>
+            <Text style={styles.buttonText}>Back to sign in</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
@@ -33,51 +56,41 @@ export default function SignInScreen() {
       </View>
       <View style={styles.content}>
         <LavLogo size={32} />
-        <Text style={styles.description}>Sign in to find bathrooms near you.</Text>
+        <Text style={styles.description}>
+          Enter your email and we'll send you a link to reset your password.
+        </Text>
 
         <View style={styles.form}>
           <TextInput
-            value={identifier}
-            onChangeText={setIdentifier}
-            placeholder="Email or username"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="Email"
             placeholderTextColor={colors.textMuted}
             style={styles.input}
             autoCapitalize="none"
             autoCorrect={false}
-            textContentType="username"
-          />
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Password"
-            placeholderTextColor={colors.textMuted}
-            style={styles.input}
-            secureTextEntry
-            textContentType="password"
+            keyboardType="email-address"
+            textContentType="emailAddress"
             returnKeyType="go"
             onSubmitEditing={handleSubmit}
           />
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
-          <Pressable style={styles.forgotPasswordRow} onPress={() => router.push("/auth/forgot-password")} hitSlop={8}>
-            <Text style={styles.linkText}>Forgot password?</Text>
-          </Pressable>
-
           <Pressable
-            style={[styles.button, (submitting || !identifier.trim() || !password) && styles.buttonDisabled]}
+            style={[styles.button, (submitting || !email.trim()) && styles.buttonDisabled]}
             onPress={handleSubmit}
-            disabled={submitting || !identifier.trim() || !password}
+            disabled={submitting || !email.trim()}
           >
             {submitting ? (
               <ActivityIndicator color={colors.textOnAccent} />
             ) : (
-              <Text style={styles.buttonText}>Sign in</Text>
+              <Text style={styles.buttonText}>Send reset link</Text>
             )}
           </Pressable>
 
-          <Pressable style={styles.linkRow} onPress={() => router.push("/auth/sign-up")} hitSlop={8}>
-            <Text style={styles.linkText}>Don't have an account? Sign up</Text>
+          <Pressable style={styles.linkRow} onPress={() => router.replace("/auth/sign-in")} hitSlop={8}>
+            <Text style={styles.linkText}>Back to sign in</Text>
           </Pressable>
         </View>
       </View>
@@ -130,9 +143,6 @@ const styles = StyleSheet.create({
   error: {
     color: colors.danger,
     fontSize: fontSize.sm,
-  },
-  forgotPasswordRow: {
-    alignItems: "flex-end",
   },
   button: {
     backgroundColor: colors.accent,

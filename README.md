@@ -619,7 +619,55 @@ Today, photos attached via Rate & Log / Submit go straight to the public `bathro
 automatic scanning back into that upload path (or replacing it with the older quarantine-bucket
 flow this function was originally written against) is one of the items in "Future improvements."
 
-## 8. Deployment notes (nothing is deployed yet)
+## 8. Email setup (Resend SMTP)
+
+Supabase Auth's confirmation/recovery/magic-link emails are sent by Supabase's own Auth service
+(GoTrue) directly over SMTP - there's no app code or Edge Function in the path, so switching
+providers is entirely configuration, not a migration or a function to deploy. (An earlier draft of
+this setup assumed otherwise - see below for why that approach was dropped.)
+
+**Local dev** (`supabase start`): `supabase/config.toml`'s `[auth.email.smtp]` section is disabled
+by default, so local dev keeps using `[local_smtp]`/Mailpit (`http://127.0.0.1:54324`) - every
+confirmation link is already captured there without needing a real inbox or eating into Resend's
+quota on every test signup. Flip `enabled = true` in that section only if you specifically want to
+test real Resend delivery locally, and put `RESEND_API_KEY` in `supabase/.env` (copy
+`supabase/.env.example`) - the CLI loads it automatically and `config.toml` reads it via
+`env(RESEND_API_KEY)`.
+
+**Hosted project** (the only thing that affects email real users receive - `config.toml` has no
+effect here): Project Settings > Authentication > SMTP Settings in the Supabase dashboard.
+
+- Host: `smtp.resend.com`
+- Port: `465` (SSL) or `587` (TLS) - either works
+- Username: `resend`
+- Password: your Resend API key
+- Sender name: `Lav App`
+- Sender email: an address at a domain you've **verified in Resend** (Resend dashboard > Domains).
+  This is the part that actually determines "lands in the inbox vs. spam," not the SMTP settings
+  above - Resend's shared `resend.dev` testing domain has no DKIM/SPF alignment with your brand and
+  gets filtered hard by Gmail once volume passes trivial testing.
+
+Verify the API key works before wiring any of this up: `pnpm test:resend -- you@example.com` (see
+`scripts/test-resend-auth.js`) sends a real test email directly through Resend's API, independent
+of Supabase entirely.
+
+Once custom SMTP is configured (local or hosted), Supabase's own aggressive default rate limit on
+its built-in mailer (a handful of emails/hour, meant to prevent abuse of the shared sender) no
+longer applies - sending is governed by Resend's plan limits instead.
+
+`apps/mobile/src/lib/auth.tsx`'s `resendConfirmationEmail()` wraps `supabase.auth.resend()` for the
+"Resend confirmation email" action on the sign-up screen's "check your inbox" state
+(`app/auth/sign-up.tsx`) - this works the same way regardless of which SMTP provider is configured.
+
+**Why there's no Edge Function or SQL migration for this**: Supabase Auth's built-in email
+templates are sent by GoTrue itself over the SMTP settings above - there's nothing for an Edge
+Function calling Resend's REST API to hook into for *this* flow, and no SQL table controls SMTP
+config (it's CLI/dashboard config, not project data). A Resend-calling Edge Function would be the
+right pattern for a genuinely separate need - a custom welcome email, a digest, anything outside
+Supabase Auth's own templates - but building one now with nothing to trigger it would just be dead
+code. Happy to add it once there's an actual use case.
+
+## 9. Deployment notes (nothing is deployed yet)
 
 - Migrations/functions: `supabase db push` and `supabase functions deploy moderate-photo` against
   the linked hosted project.
@@ -632,7 +680,7 @@ flow this function was originally written against) is one of the items in "Futur
   `moderate-photo` (or retire it) instead of publishing straight to the public bucket; add a real
   interactive native map.
 
-## 9. Security/privacy notes
+## 10. Security/privacy notes
 
 - The Supabase **service role key never appears in `apps/mobile/`** and is never read by the
   client — only Supabase CLI tooling and the Edge Function's server-side runtime see it.
@@ -649,7 +697,7 @@ flow this function was originally written against) is one of the items in "Futur
   anon-role write access anywhere — every write requires a signed-in user.
 - Photos upload straight to a public bucket today (see "Moderation setup" for the gap this leaves).
 
-## 10. Future improvements
+## 11. Future improvements
 
 An in-app admin moderation screen for the submissions queue; wiring the verification
 ("is this bathroom still here?") and achievements/badges prototypes into real screens; a real

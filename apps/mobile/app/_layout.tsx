@@ -30,7 +30,7 @@ export default function RootLayout() {
 // routed there instead of the tabs - handle_new_user()'s auto-generated
 // username/display_name are meant as a fallback, not the end state.
 function AuthGatedStack() {
-  const { session, profile, loading } = useAuth();
+  const { session, profile, loading, isPasswordRecovery } = useAuth();
   const segments = useSegments();
   const pathname = usePathname();
   const router = useRouter();
@@ -39,6 +39,16 @@ function AuthGatedStack() {
     if (loading) return;
     const inAuthGroup = segments[0] === "auth";
     const onOnboardingScreen = pathname === "/auth/onboarding";
+    const onResetPasswordScreen = pathname === "/auth/reset-password";
+
+    // Takes priority over everything else below: clicking a
+    // password-recovery link establishes a real session (see auth.tsx's
+    // onAuthStateChange handler), which would otherwise look identical to
+    // an ordinary signed-in user and route straight into the app.
+    if (isPasswordRecovery) {
+      if (!onResetPasswordScreen) router.replace("/auth/reset-password");
+      return;
+    }
 
     if (!session) {
       if (!inAuthGroup) router.replace("/auth/sign-in");
@@ -54,7 +64,7 @@ function AuthGatedStack() {
     if (inAuthGroup) {
       router.replace("/");
     }
-  }, [session, profile, loading, segments, pathname, router]);
+  }, [session, profile, loading, isPasswordRecovery, segments, pathname, router]);
 
   if (loading) {
     return <LoadingScreen />;
@@ -76,6 +86,14 @@ function AuthGatedStack() {
       <Stack.Screen
         name="auth/sign-up"
         options={{ headerShown: true, title: "Sign up", presentation: "modal" }}
+      />
+      <Stack.Screen
+        name="auth/forgot-password"
+        options={{ headerShown: true, title: "Reset password", presentation: "modal" }}
+      />
+      <Stack.Screen
+        name="auth/reset-password"
+        options={{ headerShown: true, title: "New password", presentation: "modal" }}
       />
       <Stack.Screen
         name="auth/onboarding"

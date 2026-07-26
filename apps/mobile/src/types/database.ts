@@ -466,6 +466,10 @@ export interface Database {
         };
         Returns: BathroomCluster[];
       };
+      resolve_username_to_email: {
+        Args: { input_username: string };
+        Returns: string;
+      };
     };
   };
 }

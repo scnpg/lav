@@ -12,7 +12,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
     "build:ios:dev": "eas build --profile development --platform ios",
-    "build:android:dev": "eas build --profile development --platform android"
+    "build:android:dev": "eas build --profile development --platform android",
+    "build:web": "expo export -p web && node scripts/postbuild-web.js",
+    "deploy": "pnpm build:web && npx gh-pages -d dist -b gh-pages -t"
   },
   "dependencies": {
     "@expo/metro-runtime": "56.0.15",

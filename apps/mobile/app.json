@@ -8,6 +8,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "backgroundColor": "#FDFBF7",
+    "platforms": ["ios", "android", "web"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.lav.mobile",
@@ -34,7 +35,8 @@
     },
     "web": {
       "favicon": "./assets/favicon.png",
-      "bundler": "metro"
+      "bundler": "metro",
+      "output": "single"
     },
     "plugins": [
       "expo-router",
@@ -65,6 +67,9 @@
       "eas": {
         "projectId": "27530bd5-31fe-46f4-80c2-59f1e2c46601"
       }
+    },
+    "experiments": {
+      "baseUrl": "/lav"
     }
   }
 }

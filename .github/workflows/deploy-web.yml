@@ -1,0 +1,63 @@
+name: Deploy web to GitHub Pages
+
+# Builds the Expo web export and publishes apps/mobile/dist to the gh-pages
+# branch on every push to main. Also runnable by hand from the Actions tab
+# (workflow_dispatch) - useful for the first deploy, or re-deploying after
+# rotating a secret without needing an unrelated commit to main.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Only one deploy in flight at a time - a second push landing mid-deploy
+# cancels the in-progress one rather than racing it for the gh-pages branch.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      # These three EXPO_PUBLIC_* vars are inlined into the JS bundle at
+      # build time (see apps/mobile/src/lib/env.ts) - without them the build
+      # still succeeds, but the deployed site throws immediately for every
+      # visitor. Add them under Settings > Secrets and variables > Actions
+      # before the first real deploy; see the PR/setup notes for the exact
+      # values (local dev's apps/mobile/.env has the shape, but a public
+      # GitHub Pages site needs a real hosted Supabase project, not the
+      # local one).
+      - name: Build web
+        run: pnpm build:web
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_MAP_STYLE_URL: ${{ secrets.EXPO_PUBLIC_MAP_STYLE_URL }}
+
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: apps/mobile/dist
+          publish_branch: gh-pages

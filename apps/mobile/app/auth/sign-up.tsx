@@ -13,7 +13,7 @@ import { colors, fontSize, fontWeight, lineHeight, radii, spacing } from "../../
 const MIN_PASSWORD_LENGTH = 6;
 
 export default function SignUpScreen() {
-  const { signUpWithPassword, session } = useAuth();
+  const { signUpWithPassword, resendConfirmationEmail } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,8 +24,13 @@ export default function SignUpScreen() {
   // session immediately and the root layout's redirect takes over before
   // this ever renders. This only shows if confirmation is required (no
   // session yet after a successful signUp) - see AuthGatedStack in
-  // app/_layout.tsx for the redirect this depends on.
+  // app/_layout.tsx for the redirect this depends on. Driven directly by
+  // signUpWithPassword's own return value now, not by re-checking context
+  // session after the call.
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+  const [likelyExistingAccount, setLikelyExistingAccount] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
 
   const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword;
   const passwordTooShort = password.length > 0 && password.length < MIN_PASSWORD_LENGTH;
@@ -36,15 +41,59 @@ export default function SignUpScreen() {
     if (!canSubmit) return;
     setSubmitting(true);
     setError(null);
-    const { error: signUpError } = await signUpWithPassword(email.trim(), password);
+    const result = await signUpWithPassword(email.trim(), password);
     setSubmitting(false);
-    if (signUpError) {
-      setError(signUpError);
+    if (result.error) {
+      setError(result.error);
       return;
     }
-    if (!session) setAwaitingConfirmation(true);
+    if (result.needsConfirmation) {
+      setLikelyExistingAccount(result.likelyExistingAccount);
+      setAwaitingConfirmation(true);
+    }
     // If a session came back immediately, the root layout's session-watching
     // redirect takes it from here.
+  }
+
+  async function handleResend() {
+    setResending(true);
+    setResendMessage(null);
+    const { error: resendError } = await resendConfirmationEmail(email.trim());
+    setResending(false);
+    setResendMessage(resendError ?? "Sent again - check your inbox (and spam folder).");
+  }
+
+  // Two distinct outcomes behind the same "no session yet" response from
+  // signUp() - see its own comment for why the empty-identities heuristic
+  // is reliable specifically for "already exists AND already confirmed"
+  // (as opposed to "exists but still unconfirmed", which Supabase treats as
+  // an ordinary resend and which correctly falls into the branch below
+  // instead). A genuinely new signup and a stale, already-confirmed repeat
+  // signup need different actions, not the same "check your email" copy -
+  // resending a confirmation email to an already-confirmed address just
+  // repeats the confusion that caused this screen to exist.
+  if (awaitingConfirmation && likelyExistingAccount) {
+    return (
+      <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
+        <View style={styles.patternLayer} pointerEvents="none">
+          <ArabesquePattern rows={14} columns={7} starSize={22} gap={16} opacity={0.05} />
+        </View>
+        <View style={styles.content}>
+          <LavLogo size={32} />
+          <Text style={styles.description}>An account already exists for {email.trim()}.</Text>
+          <Pressable style={styles.button} onPress={() => router.replace("/auth/sign-in")}>
+            <Text style={styles.buttonText}>Sign in</Text>
+          </Pressable>
+          <Pressable
+            style={styles.linkRow}
+            onPress={() => router.push("/auth/forgot-password")}
+            hitSlop={8}
+          >
+            <Text style={styles.linkText}>Forgot your password?</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   if (awaitingConfirmation) {
@@ -55,9 +104,15 @@ export default function SignUpScreen() {
         </View>
         <View style={styles.content}>
           <LavLogo size={32} />
-          <Text style={styles.description}>
-            Check {email.trim()} for a confirmation link, then sign in.
-          </Text>
+          <Text style={styles.description}>Check {email.trim()} for a confirmation link, then sign in.</Text>
+          <Pressable style={styles.linkRow} onPress={handleResend} disabled={resending} hitSlop={8}>
+            {resending ? (
+              <ActivityIndicator color={colors.textSecondary} />
+            ) : (
+              <Text style={styles.linkText}>Resend confirmation email</Text>
+            )}
+          </Pressable>
+          {resendMessage ? <Text style={styles.hint}>{resendMessage}</Text> : null}
           <Pressable style={styles.button} onPress={() => router.replace("/auth/sign-in")}>
             <Text style={styles.buttonText}>Back to sign in</Text>
           </Pressable>

@@ -11,14 +11,18 @@
     "web": "pnpm --filter lav-mobile web",
     "typecheck": "pnpm --filter lav-mobile typecheck",
     "lint": "pnpm --filter lav-mobile lint",
+    "build:web": "pnpm --filter lav-mobile build:web",
+    "deploy": "pnpm --filter lav-mobile deploy",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:reset": "supabase db reset",
     "supabase:push": "supabase db push",
     "supabase:functions:deploy": "supabase functions deploy moderate-photo",
-    "ingest:overpass": "tsx scripts/ingest-overpass-bathrooms.ts"
+    "ingest:overpass": "tsx scripts/ingest-overpass-bathrooms.ts",
+    "test:resend": "node scripts/test-resend-auth.js"
   },
   "devDependencies": {
+    "gh-pages": "^6.3.0",
     "tsx": "^4.19.2"
   },
   "engines": {

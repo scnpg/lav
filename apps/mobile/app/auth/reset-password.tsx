@@ -8,22 +8,40 @@ import { LavLogo } from "../../src/components/LavLogo";
 import { useAuth } from "../../src/lib/auth";
 import { colors, fontSize, fontWeight, lineHeight, radii, spacing } from "../../src/theme";
 
-export default function SignInScreen() {
-  const { signInWithPassword } = useAuth();
+// Matches Supabase Auth's default minimum_password_length (see
+// supabase/config.toml [auth] - unset, so the CLI default of 6 applies).
+const MIN_PASSWORD_LENGTH = 6;
+
+// Only reachable via AuthGatedStack routing here while isPasswordRecovery is
+// true (app/_layout.tsx) - i.e. after clicking a password-recovery email
+// link, which signs the user into a real, temporary session. There's no
+// "current password" field because that temporary session is itself the
+// proof of identity, same as every other password-reset flow works.
+export default function ResetPasswordScreen() {
+  const { updatePassword } = useAuth();
   const router = useRouter();
-  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword;
+  const passwordTooShort = password.length > 0 && password.length < MIN_PASSWORD_LENGTH;
+  const canSubmit = password.length >= MIN_PASSWORD_LENGTH && password === confirmPassword;
+
   async function handleSubmit() {
-    if (!identifier.trim() || !password) return;
+    if (!canSubmit) return;
     setSubmitting(true);
     setError(null);
-    const { error: signInError } = await signInWithPassword(identifier.trim(), password);
+    const { error: updateError } = await updatePassword(password);
     setSubmitting(false);
-    if (signInError) setError(signInError);
-    // On success, the root layout's session-watching redirect takes it from here.
+    if (updateError) {
+      setError(updateError);
+      return;
+    }
+    // isPasswordRecovery clears on success, so AuthGatedStack's normal
+    // routing takes over (into the app, or onboarding) - no explicit
+    // navigation needed here.
   }
 
   return (
@@ -33,51 +51,48 @@ export default function SignInScreen() {
       </View>
       <View style={styles.content}>
         <LavLogo size={32} />
-        <Text style={styles.description}>Sign in to find bathrooms near you.</Text>
+        <Text style={styles.description}>Set a new password for your account.</Text>
 
         <View style={styles.form}>
           <TextInput
-            value={identifier}
-            onChangeText={setIdentifier}
-            placeholder="Email or username"
-            placeholderTextColor={colors.textMuted}
-            style={styles.input}
-            autoCapitalize="none"
-            autoCorrect={false}
-            textContentType="username"
-          />
-          <TextInput
             value={password}
             onChangeText={setPassword}
-            placeholder="Password"
+            placeholder="New password"
             placeholderTextColor={colors.textMuted}
             style={styles.input}
             secureTextEntry
-            textContentType="password"
+            textContentType="newPassword"
+            returnKeyType="next"
+          />
+          <TextInput
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            placeholder="Confirm new password"
+            placeholderTextColor={colors.textMuted}
+            style={styles.input}
+            secureTextEntry
+            textContentType="newPassword"
             returnKeyType="go"
             onSubmitEditing={handleSubmit}
           />
 
+          {passwordTooShort ? (
+            <Text style={styles.hint}>Password must be at least {MIN_PASSWORD_LENGTH} characters.</Text>
+          ) : passwordsMismatch ? (
+            <Text style={styles.hint}>Passwords don't match.</Text>
+          ) : null}
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
-          <Pressable style={styles.forgotPasswordRow} onPress={() => router.push("/auth/forgot-password")} hitSlop={8}>
-            <Text style={styles.linkText}>Forgot password?</Text>
-          </Pressable>
-
           <Pressable
-            style={[styles.button, (submitting || !identifier.trim() || !password) && styles.buttonDisabled]}
+            style={[styles.button, (submitting || !canSubmit) && styles.buttonDisabled]}
             onPress={handleSubmit}
-            disabled={submitting || !identifier.trim() || !password}
+            disabled={submitting || !canSubmit}
           >
             {submitting ? (
               <ActivityIndicator color={colors.textOnAccent} />
             ) : (
-              <Text style={styles.buttonText}>Sign in</Text>
+              <Text style={styles.buttonText}>Update password</Text>
             )}
-          </Pressable>
-
-          <Pressable style={styles.linkRow} onPress={() => router.push("/auth/sign-up")} hitSlop={8}>
-            <Text style={styles.linkText}>Don't have an account? Sign up</Text>
           </Pressable>
         </View>
       </View>
@@ -127,12 +142,13 @@ const styles = StyleSheet.create({
     fontSize: fontSize.base,
     color: colors.textPrimary,
   },
+  hint: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+  },
   error: {
     color: colors.danger,
     fontSize: fontSize.sm,
-  },
-  forgotPasswordRow: {
-    alignItems: "flex-end",
   },
   button: {
     backgroundColor: colors.accent,
@@ -149,14 +165,5 @@ const styles = StyleSheet.create({
     color: colors.textOnAccent,
     fontSize: fontSize.base,
     fontWeight: fontWeight.semibold,
-  },
-  linkRow: {
-    alignItems: "center",
-    marginTop: spacing.sm,
-  },
-  linkText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
   },
 });
