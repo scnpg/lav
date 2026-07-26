@@ -659,13 +659,32 @@ longer applies - sending is governed by Resend's plan limits instead.
 "Resend confirmation email" action on the sign-up screen's "check your inbox" state
 (`app/auth/sign-up.tsx`) - this works the same way regardless of which SMTP provider is configured.
 
-**Why there's no Edge Function or SQL migration for this**: Supabase Auth's built-in email
-templates are sent by GoTrue itself over the SMTP settings above - there's nothing for an Edge
-Function calling Resend's REST API to hook into for *this* flow, and no SQL table controls SMTP
-config (it's CLI/dashboard config, not project data). A Resend-calling Edge Function would be the
-right pattern for a genuinely separate need - a custom welcome email, a digest, anything outside
-Supabase Auth's own templates - but building one now with nothing to trigger it would just be dead
-code. Happy to add it once there's an actual use case.
+### Alternative to SMTP: the `send-email` Auth Hook
+
+The SMTP path above still goes through Supabase's own mailer infrastructure, which enforces its own
+default rate limit (2 emails/hour) *until* custom SMTP is fully configured in the dashboard - a
+real blocker if you want emails working before finishing that setup, or if you'd rather not
+depend on GoTrue's mailer relay at all.
+
+`supabase/functions/send-email` is a **Send Email Auth Hook**: once enabled, GoTrue calls this
+function directly for every confirmation/recovery email instead of using its own mailer at all, so
+that rate limit never applies - sending is governed only by Resend's own plan limits (its free
+tier alone is far above 2/hour). It builds the same `auth/v1/verify` action link GoTrue's own
+templates use and sends it via Resend's REST API.
+
+This can't be fully wired up from the CLI - the signing secret it verifies every request against
+is *generated* in the dashboard, not something to invent and push:
+
+1. Deploy the function: `supabase functions deploy send-email --project-ref <ref> --no-verify-jwt`
+   (already done as of this commit - re-run only after editing its code).
+2. Set its two secrets: `supabase secrets set --project-ref <ref> RESEND_API_KEY=<your key>
+   RESEND_FROM_EMAIL="Lav <you@your-verified-domain>"` (falls back to Resend's shared testing
+   sender if unset - fine for testing, not for real recipients, same caveat as the SMTP path above).
+3. Dashboard → Authentication → Hooks → **Send Email hook** → enable it, point it at this
+   function's URL, and copy the secret it generates into
+   `supabase secrets set --project-ref <ref> SEND_EMAIL_HOOK_SECRET=<generated secret>`.
+
+Once enabled, this fully replaces the SMTP path above for every auth email - you don't need both.
 
 ## 9. Deployment notes (nothing is deployed yet)
 
