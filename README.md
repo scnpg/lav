@@ -686,13 +686,23 @@ is *generated* in the dashboard, not something to invent and push:
 
 Once enabled, this fully replaces the SMTP path above for every auth email - you don't need both.
 
-## 9. Deployment notes (nothing is deployed yet)
+## 9. Deployment notes
 
 - Migrations/functions: `supabase db push` and `supabase functions deploy moderate-photo` against
   the linked hosted project.
 - Mobile builds: EAS Build (`eas build`) once an Expo account/project is set up — not configured
   in this repo yet (no `eas.json`).
-- Web: `expo export --platform web` produces a static bundle deployable to any static host.
+- Web: `pnpm --filter lav-mobile deploy` (or the root `pnpm deploy`) builds the web export and
+  publishes `apps/mobile/dist` to the `gh-pages` branch, which GitHub Pages serves at
+  `https://scnpg.github.io/lav/`. `.github/workflows/deploy-web.yml` also does this automatically
+  on every push to `main`.
+  - **Windows only**: this fails silently (reports "Published" with a stale/incomplete branch,
+    no error) unless long paths are enabled - `git config --global core.longpaths true`. The web
+    export mirrors the real pnpm `node_modules` folder structure for a few font assets (e.g.
+    `assets/__node_modules/.pnpm/@expo+vector-icons@.../node_modules/@expo/vector-icons/...`),
+    and those paths exceed Windows' default ~260-character limit, so `git add` drops them without
+    erroring - the deploy "succeeds" while quietly missing every icon font. Confirmed by direct
+    testing: re-publishing after enabling long paths correctly includes all asset files.
 - **Production TODOs**: replace the OpenFreeMap dev tile style and the direct-from-client Nominatim
   calls with a production-scale tile/geocoding provider; add EXIF-stripping at upload time; build
   the in-app admin moderation screen (see "Known gaps"); wire photo uploads through
