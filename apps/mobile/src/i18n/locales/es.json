@@ -1,0 +1,82 @@
+{
+  "common": {
+    "submit": "Enviar",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "close": "Cerrar",
+    "retry": "Reintentar",
+    "back": "Atrás"
+  },
+  "tabs": {
+    "map": "Mapa",
+    "feed": "Actividad",
+    "search": "Buscar",
+    "lists": "Listas",
+    "profile": "Perfil"
+  },
+  "map": {
+    "filters": {
+      "free": "Gratis",
+      "wheelchair": "Accesible en silla de ruedas",
+      "bidet": "Bidé",
+      "publicOnly": "Solo públicos"
+    },
+    "loadingBathrooms": "Cargando baños...",
+    "zoomToView": "Acerca el mapa para ver los baños",
+    "showingCached": "Mostrando resultados guardados - conexión débil",
+    "locateMe": "Centrar el mapa en mi ubicación",
+    "addBathroom": "Añadir un nuevo baño",
+    "submitLabel": "Enviar"
+  },
+  "auth": {
+    "signIn": {
+      "title": "Iniciar sesión",
+      "description": "Inicia sesión para encontrar baños cerca de ti.",
+      "identifierPlaceholder": "Correo electrónico o usuario",
+      "passwordPlaceholder": "Contraseña",
+      "forgotPassword": "¿Olvidaste tu contraseña?",
+      "submit": "Iniciar sesión",
+      "noAccount": "¿No tienes una cuenta? Regístrate"
+    },
+    "signUp": {
+      "title": "Registrarse",
+      "description": "Crea una cuenta para guardar lugares y enviar otros nuevos.",
+      "emailPlaceholder": "Correo electrónico",
+      "passwordPlaceholder": "Contraseña",
+      "confirmPasswordPlaceholder": "Confirmar contraseña",
+      "submit": "Registrarse",
+      "haveAccount": "¿Ya tienes una cuenta? Inicia sesión"
+    }
+  },
+  "profile": {
+    "editProfile": "Editar perfil",
+    "signOut": "Cerrar sesión",
+    "stats": {
+      "logged": "Registrados",
+      "dayStreak": "Racha de días",
+      "wantToGo": "Por visitar",
+      "friends": "Amigos"
+    },
+    "tabs": {
+      "beenThere": "Visitados",
+      "wantToGo": "Por visitar",
+      "collections": "Colecciones"
+    },
+    "points_one": "{{count}} punto",
+    "points_other": "{{count}} puntos",
+    "usersMap": "Mapa de {{name}}"
+  },
+  "feed": {
+    "tabs": {
+      "friends": "Amigos",
+      "popular": "Popular cerca de ti",
+      "trending": "Tendencia nacional"
+    }
+  },
+  "language": {
+    "title": "Idioma",
+    "en": "English",
+    "zh-Hant": "繁體中文",
+    "es": "Español"
+  }
+}

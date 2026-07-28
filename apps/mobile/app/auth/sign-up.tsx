@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ArabesquePattern } from "../../src/components/ArabesquePattern";
@@ -13,6 +14,7 @@ import { colors, fontSize, fontWeight, lineHeight, radii, spacing } from "../../
 const MIN_PASSWORD_LENGTH = 6;
 
 export default function SignUpScreen() {
+  const { t } = useTranslation();
   const { signUpWithPassword, resendConfirmationEmail } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -128,13 +130,13 @@ export default function SignUpScreen() {
       </View>
       <View style={styles.content}>
         <LavLogo size={32} />
-        <Text style={styles.description}>Create an account to save spots and submit new ones.</Text>
+        <Text style={styles.description}>{t("auth.signUp.description")}</Text>
 
         <View style={styles.form}>
           <TextInput
             value={email}
             onChangeText={setEmail}
-            placeholder="Email"
+            placeholder={t("auth.signUp.emailPlaceholder")}
             placeholderTextColor={colors.textMuted}
             style={styles.input}
             autoCapitalize="none"
@@ -145,7 +147,7 @@ export default function SignUpScreen() {
           <TextInput
             value={password}
             onChangeText={setPassword}
-            placeholder="Password"
+            placeholder={t("auth.signUp.passwordPlaceholder")}
             placeholderTextColor={colors.textMuted}
             style={styles.input}
             secureTextEntry
@@ -155,7 +157,7 @@ export default function SignUpScreen() {
           <TextInput
             value={confirmPassword}
             onChangeText={setConfirmPassword}
-            placeholder="Confirm password"
+            placeholder={t("auth.signUp.confirmPasswordPlaceholder")}
             placeholderTextColor={colors.textMuted}
             style={styles.input}
             secureTextEntry
@@ -179,12 +181,12 @@ export default function SignUpScreen() {
             {submitting ? (
               <ActivityIndicator color={colors.textOnAccent} />
             ) : (
-              <Text style={styles.buttonText}>Sign up</Text>
+              <Text style={styles.buttonText}>{t("auth.signUp.submit")}</Text>
             )}
           </Pressable>
 
           <Pressable style={styles.linkRow} onPress={() => router.replace("/auth/sign-in")} hitSlop={8}>
-            <Text style={styles.linkText}>Already have an account? Sign in</Text>
+            <Text style={styles.linkText}>{t("auth.signUp.haveAccount")}</Text>
           </Pressable>
         </View>
       </View>

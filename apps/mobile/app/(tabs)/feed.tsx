@@ -3,10 +3,12 @@ import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { LavLogo } from "../../src/components/LavLogo";
 import { LevelBadge } from "../../src/components/LevelBadge";
+import { ReviewRepliesModal } from "../../src/components/bathroom/ReviewRepliesModal";
 import { getFriendIds } from "../../src/features/friends/api";
 import {
   getFriendsFeed,
@@ -14,6 +16,7 @@ import {
   getRecentReviews,
   type RecentReviewFeedItem,
 } from "../../src/features/bathrooms/ratingsApi";
+import { getLikeStatesForReviews, getReplyCountsForReviews, toggleReviewLike, type ReviewLikeState } from "../../src/features/social/api";
 import { useLiveLocation } from "../../src/hooks/useLiveLocation";
 import { useAuth } from "../../src/lib/auth";
 import { formatRelativeTime } from "../../src/lib/format";
@@ -21,10 +24,10 @@ import { colors, fontSize, fontWeight, radii, spacing } from "../../src/theme";
 
 type FeedTab = "friends" | "popular" | "trending";
 
-const TABS: { key: FeedTab; label: string }[] = [
-  { key: "friends", label: "Friends" },
-  { key: "popular", label: "Popular Near Me" },
-  { key: "trending", label: "National Trending" },
+const TAB_KEYS: { key: FeedTab; labelKey: string }[] = [
+  { key: "friends", labelKey: "feed.tabs.friends" },
+  { key: "popular", labelKey: "feed.tabs.popular" },
+  { key: "trending", labelKey: "feed.tabs.trending" },
 ];
 
 const SUB_SCORE_FIELDS: {
@@ -43,12 +46,16 @@ const SUB_SCORE_FIELDS: {
 // (live GPS + 15km/30-day window), and what's hot everywhere (the same
 // global recent-activity query the single-tab Feed used before).
 export default function FeedScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { status: locationStatus, coords: userLocation } = useLiveLocation();
 
   const [activeTab, setActiveTab] = useState<FeedTab>("trending");
   const [reviews, setReviews] = useState<RecentReviewFeedItem[]>([]);
+  const [likeStates, setLikeStates] = useState<Map<string, ReviewLikeState>>(new Map());
+  const [replyCounts, setReplyCounts] = useState<Map<string, number>>(new Map());
+  const [replyModalReviewId, setReplyModalReviewId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +75,13 @@ export default function FeedScreen() {
           rows = await getRecentReviews(20);
         }
         setReviews(rows);
+        const ids = rows.map((r) => r.id);
+        const [likes, replies] = await Promise.all([
+          getLikeStatesForReviews(ids, user?.id),
+          getReplyCountsForReviews(ids),
+        ]);
+        setLikeStates(likes);
+        setReplyCounts(replies);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Couldn't load the feed.");
       } finally {
@@ -77,6 +91,34 @@ export default function FeedScreen() {
     },
     [activeTab, user, userLocation]
   );
+
+  // Optimistic toggle, same pattern as the map's toggleBookmark heart -
+  // flips the button instantly rather than waiting on the round trip, since
+  // a like has no validation that can meaningfully fail.
+  async function handleToggleLike(reviewId: string) {
+    if (!user) {
+      router.push("/auth/sign-in");
+      return;
+    }
+    const current = likeStates.get(reviewId) ?? { count: 0, likedByMe: false };
+    const next: ReviewLikeState = current.likedByMe
+      ? { count: Math.max(0, current.count - 1), likedByMe: false }
+      : { count: current.count + 1, likedByMe: true };
+    setLikeStates((prev) => new Map(prev).set(reviewId, next));
+    try {
+      await toggleReviewLike(reviewId, user.id, current.likedByMe);
+    } catch {
+      setLikeStates((prev) => new Map(prev).set(reviewId, current));
+    }
+  }
+
+  function handleOpenReplies(reviewId: string) {
+    if (!user) {
+      router.push("/auth/sign-in");
+      return;
+    }
+    setReplyModalReviewId(reviewId);
+  }
 
   // Fires on every focus AND whenever `load` itself changes identity (tab
   // switch, sign-in/out, a live GPS fix arriving) - one hook covers both
@@ -123,14 +165,14 @@ export default function FeedScreen() {
       </View>
 
       <View style={styles.tabRow}>
-        {TABS.map((tab) => (
+        {TAB_KEYS.map((tab) => (
           <Pressable
             key={tab.key}
             style={[styles.tabButton, activeTab === tab.key && styles.tabButtonActive]}
             onPress={() => setActiveTab(tab.key)}
           >
             <Text style={[styles.tabButtonText, activeTab === tab.key && styles.tabButtonTextActive]} numberOfLines={1}>
-              {tab.label}
+              {t(tab.labelKey)}
             </Text>
           </Pressable>
         ))}
@@ -159,15 +201,49 @@ export default function FeedScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.accent} />}
         >
           {reviews.map((review) => (
-            <FeedCard key={review.id} review={review} onPress={() => router.push(`/bathrooms/${review.bathroom_id}`)} />
+            <FeedCard
+              key={review.id}
+              review={review}
+              likeState={likeStates.get(review.id) ?? { count: 0, likedByMe: false }}
+              replyCount={replyCounts.get(review.id) ?? 0}
+              onPress={() => router.push(`/bathrooms/${review.bathroom_id}`)}
+              onToggleLike={() => handleToggleLike(review.id)}
+              onOpenReplies={() => handleOpenReplies(review.id)}
+            />
           ))}
         </ScrollView>
       )}
+
+      {replyModalReviewId && user ? (
+        <ReviewRepliesModal
+          reviewId={replyModalReviewId}
+          userId={user.id}
+          myProfile={profile}
+          onClose={() => setReplyModalReviewId(null)}
+          onCountChange={(delta) =>
+            setReplyCounts((prev) => new Map(prev).set(replyModalReviewId, Math.max(0, (prev.get(replyModalReviewId) ?? 0) + delta)))
+          }
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
 
-function FeedCard({ review, onPress }: { review: RecentReviewFeedItem; onPress: () => void }) {
+function FeedCard({
+  review,
+  likeState,
+  replyCount,
+  onPress,
+  onToggleLike,
+  onOpenReplies,
+}: {
+  review: RecentReviewFeedItem;
+  likeState: ReviewLikeState;
+  replyCount: number;
+  onPress: () => void;
+  onToggleLike: () => void;
+  onOpenReplies: () => void;
+}) {
   const router = useRouter();
   const subScores = SUB_SCORE_FIELDS.map(({ key, icon, label }) => {
     const value = review[key];
@@ -228,6 +304,35 @@ function FeedCard({ review, onPress }: { review: RecentReviewFeedItem; onPress: 
           {review.review_text}
         </Text>
       ) : null}
+
+      <View style={styles.engagementRow}>
+        <Pressable
+          style={styles.engagementButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            onToggleLike();
+          }}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={likeState.likedByMe ? "Unlike" : "Like"}
+        >
+          <Ionicons name={likeState.likedByMe ? "heart" : "heart-outline"} size={17} color={likeState.likedByMe ? colors.danger : colors.textMuted} />
+          {likeState.count > 0 ? <Text style={styles.engagementText}>{likeState.count}</Text> : null}
+        </Pressable>
+        <Pressable
+          style={styles.engagementButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            onOpenReplies();
+          }}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Replies"
+        >
+          <Ionicons name="chatbubble-outline" size={16} color={colors.textMuted} />
+          {replyCount > 0 ? <Text style={styles.engagementText}>{replyCount}</Text> : null}
+        </Pressable>
+      </View>
     </Pressable>
   );
 }
@@ -404,5 +509,21 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textSecondary,
     fontStyle: "italic",
+  },
+  engagementRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.lg,
+    marginTop: 2,
+  },
+  engagementButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  engagementText: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
+    color: colors.textMuted,
   },
 });

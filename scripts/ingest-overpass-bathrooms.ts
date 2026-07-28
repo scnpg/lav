@@ -125,7 +125,13 @@ async function fetchOverpassNodes(bbox: BoundingBox): Promise<OverpassNode[]> {
   const query = `[out:json][timeout:${OVERPASS_QUERY_TIMEOUT_SECONDS}];node["amenity"="toilets"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});out body;`;
   const res = await fetch(OVERPASS_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      // Overpass now 406s a request with no User-Agent at all (confirmed
+      // directly - the identical query succeeds with this header and fails
+      // without it).
+      "User-Agent": "LavBathroomApp/1.0 (+https://scnpg.github.io/lav/)",
+    },
     body: `data=${encodeURIComponent(query)}`,
   });
   if (!res.ok) throw new Error(`Overpass query failed (${res.status}): ${await res.text()}`);

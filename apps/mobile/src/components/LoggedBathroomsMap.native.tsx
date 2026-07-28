@@ -8,10 +8,13 @@ export interface LoggedMapPin {
   name: string;
   latitude: number;
   longitude: number;
+  overallRating: number | null;
 }
 
 interface LoggedBathroomsMapProps {
   bathrooms: LoggedMapPin[];
+  /** e.g. "Ian's map" on a profile - falls back to a plain count if omitted. */
+  title?: string;
   onClose: () => void;
   onSelectBathroom: (id: string) => void;
 }
@@ -19,12 +22,12 @@ interface LoggedBathroomsMapProps {
 // Same "not built for native yet" honesty as MapView.native.tsx /
 // PinPickerMap.native.tsx - a plain tappable list instead of pretending to
 // place real pins.
-export function LoggedBathroomsMap({ bathrooms, onClose, onSelectBathroom }: LoggedBathroomsMapProps) {
+export function LoggedBathroomsMap({ bathrooms, title, onClose, onSelectBathroom }: LoggedBathroomsMapProps) {
   return (
     <View style={styles.overlay}>
       <View style={styles.header}>
         <Text style={styles.title}>
-          {bathrooms.length} bathroom{bathrooms.length === 1 ? "" : "s"} logged
+          {title ?? `${bathrooms.length} bathroom${bathrooms.length === 1 ? "" : "s"} logged`}
         </Text>
         <Pressable
           style={styles.closeButton}
@@ -47,6 +50,12 @@ export function LoggedBathroomsMap({ bathrooms, onClose, onSelectBathroom }: Log
             <Text style={styles.rowText} numberOfLines={1}>
               {item.name}
             </Text>
+            {item.overallRating !== null ? (
+              <View style={styles.ratingBadge}>
+                <Ionicons name="star" size={11} color={colors.gold} />
+                <Text style={styles.ratingBadgeText}>{item.overallRating.toFixed(1)}</Text>
+              </View>
+            ) : null}
           </Pressable>
         )}
       />
@@ -104,6 +113,20 @@ const styles = StyleSheet.create({
   rowText: {
     flex: 1,
     fontSize: fontSize.base,
+    color: colors.textPrimary,
+  },
+  ratingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: colors.goldMuted,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radii.full,
+  },
+  ratingBadgeText: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
     color: colors.textPrimary,
   },
 });

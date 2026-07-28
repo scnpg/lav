@@ -40,11 +40,8 @@ const GENDER_CATEGORY_OPTIONS = GENDER_CATEGORIES.map((value) => ({ value, label
 const TOILET_TYPE_OPTIONS = TOILET_TYPES.map((value) => ({ value, label: TOILET_TYPE_LABELS[value] }));
 const MAX_PHOTOS = 6;
 
-// The Beli-style scorecard: one overall 0-10 rating (slider, snaps to 0.5 -
-// bathrooms.overall_score is now the *mode* across every rater, see
-// 0028_mode_based_overall_score.sql, and a mode is only meaningful if raters
-// actually land on shared values instead of arbitrary decimals) plus four
-// 1-5 sub-scores, matching bathroom_reviews' shape 1:1. Upserts - opening
+// The Beli-style scorecard: one overall 0-10 rating (slider, snaps to 0.5)
+// plus four 1-5 sub-scores, matching bathroom_reviews' shape 1:1. Upserts - opening
 // this on a bathroom you've already rated pre-fills your existing scores and
 // updates that same row instead of creating a second one.
 //

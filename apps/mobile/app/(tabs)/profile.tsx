@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ArabesqueLoader } from "../../src/components/ArabesqueLoader";
@@ -15,8 +16,10 @@ import { LoggedBathroomsMap } from "../../src/components/LoggedBathroomsMap";
 import { ACCESS_TYPE_LABELS, COST_TYPE_LABELS } from "../../src/constants/enumLabels";
 import { getSavedBathrooms, toggleBookmark } from "../../src/features/bathrooms/api";
 import { getMyLoggedBathrooms, type LoggedBathroom } from "../../src/features/bathrooms/ratingsApi";
-import { getFriendIds } from "../../src/features/friends/api";
+import { getFriendIds, getIncomingRequests } from "../../src/features/friends/api";
 import { getListItemCounts, getListsForUser } from "../../src/features/lists/api";
+import { getUnreadNotificationCount } from "../../src/features/social/api";
+import { SUPPORTED_LANGUAGES, setLanguage, type SupportedLanguage } from "../../src/i18n";
 import { useAuth } from "../../src/lib/auth";
 import { uploadAvatar } from "../../src/lib/profiles";
 import { cardShadow, colors, fontSize, fontWeight, radii, spacing } from "../../src/theme";
@@ -55,6 +58,7 @@ function computeLoggingStreak(reviews: { created_at: string }[]): number {
 // contentInner caps the page width and centers it so this doesn't stretch
 // into a single sparse row on a wide desktop browser.
 export default function ProfileScreen() {
+  const { t, i18n } = useTranslation();
   const { user, profile, loading, updateDisplayName, updateUsername, refreshProfile, signOut } = useAuth();
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
@@ -74,6 +78,20 @@ export default function ProfileScreen() {
   const [listsError, setListsError] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [showLoggedMap, setShowLoggedMap] = useState(false);
+  const [pendingRequestCount, setPendingRequestCount] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Own effect (not folded into loadLists below): refetches on every focus,
+  // not just on user-change, so accepting a request or opening the Inbox on
+  // those two screens is reflected the moment you come back here - loadLists
+  // deliberately doesn't re-run that often, this is cheap enough to.
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      getIncomingRequests(user.id).then((rows) => setPendingRequestCount(rows.length));
+      getUnreadNotificationCount(user.id).then(setUnreadCount);
+    }, [user])
+  );
 
   const loadLists = useCallback(async () => {
     if (!user) return;
@@ -231,6 +249,36 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <View style={styles.screenHeader}>
         <LavLogo size={22} />
+        <View style={styles.headerActions}>
+          <Pressable
+            style={styles.headerIconButton}
+            onPress={() => router.push("/profile/requests")}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Friend requests"
+          >
+            <Ionicons name="person-add-outline" size={20} color={colors.textPrimary} />
+            {pendingRequestCount > 0 ? (
+              <View style={styles.headerBadge}>
+                <Text style={styles.headerBadgeText}>{pendingRequestCount > 9 ? "9+" : pendingRequestCount}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+          <Pressable
+            style={styles.headerIconButton}
+            onPress={() => router.push("/profile/inbox")}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Inbox"
+          >
+            <Ionicons name="mail-outline" size={20} color={colors.textPrimary} />
+            {unreadCount > 0 ? (
+              <View style={styles.headerBadge}>
+                <Text style={styles.headerBadgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        </View>
       </View>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.contentInner}>
@@ -298,9 +346,7 @@ export default function ProfileScreen() {
                   )}
                   <View style={styles.pointsRow}>
                     <Ionicons name="trophy-outline" size={14} color={colors.textPrimary} />
-                    <Text style={styles.pointsText}>
-                      {points} point{points === 1 ? "" : "s"}
-                    </Text>
+                    <Text style={styles.pointsText}>{t("profile.points", { count: points })}</Text>
                   </View>
                   <LevelProgressBar points={points} level={profile.level} />
                 </View>
@@ -311,10 +357,10 @@ export default function ProfileScreen() {
                 onPress={() => signOut()}
                 hitSlop={8}
                 accessibilityRole="button"
-                accessibilityLabel="Sign out"
+                accessibilityLabel={t("profile.signOut")}
               >
                 <Ionicons name="log-out-outline" size={18} color={colors.danger} />
-                <Text style={styles.signOutText}>Sign out</Text>
+                <Text style={styles.signOutText}>{t("profile.signOut")}</Text>
               </Pressable>
             </View>
 
@@ -327,7 +373,7 @@ export default function ProfileScreen() {
                 accessibilityLabel="View logged bathrooms on a map"
               >
                 <Text style={styles.statValue}>{loggedBathrooms.length}</Text>
-                <Text style={styles.statLabel}>Logged</Text>
+                <Text style={styles.statLabel}>{t("profile.stats.logged")}</Text>
               </Pressable>
               <View style={styles.statDivider} />
               <View style={styles.statBlock}>
@@ -335,18 +381,24 @@ export default function ProfileScreen() {
                   {streak > 0 ? <Ionicons name="flame" size={16} color={colors.warning} /> : null}
                   <Text style={styles.statValue}>{streak}</Text>
                 </View>
-                <Text style={styles.statLabel}>Day streak</Text>
+                <Text style={styles.statLabel}>{t("profile.stats.dayStreak")}</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statBlock}>
                 <Text style={styles.statValue}>{savedBathrooms.length}</Text>
-                <Text style={styles.statLabel}>Want to go</Text>
+                <Text style={styles.statLabel}>{t("profile.stats.wantToGo")}</Text>
               </View>
               <View style={styles.statDivider} />
-              <View style={styles.statBlock}>
+              <Pressable
+                style={styles.statBlock}
+                onPress={() => friendCount > 0 && router.push("/profile/friends")}
+                disabled={friendCount === 0}
+                accessibilityRole="button"
+                accessibilityLabel="View your friends"
+              >
                 <Text style={styles.statValue}>{friendCount}</Text>
-                <Text style={styles.statLabel}>Friends</Text>
-              </View>
+                <Text style={styles.statLabel}>{t("profile.stats.friends")}</Text>
+              </Pressable>
             </View>
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -354,7 +406,7 @@ export default function ProfileScreen() {
             {isEditing ? (
               <View style={styles.editActionsRow}>
                 <Pressable style={styles.cancelButton} onPress={() => setIsEditing(false)} disabled={saving}>
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                  <Text style={styles.cancelButtonText}>{t("common.cancel")}</Text>
                 </Pressable>
                 <Pressable
                   style={[styles.saveButton, (!nameInput.trim() || saving) && styles.saveButtonDisabled]}
@@ -364,16 +416,33 @@ export default function ProfileScreen() {
                   {saving ? (
                     <ActivityIndicator color={colors.textOnAccent} size="small" />
                   ) : (
-                    <Text style={styles.saveButtonText}>Save</Text>
+                    <Text style={styles.saveButtonText}>{t("common.save")}</Text>
                   )}
                 </Pressable>
               </View>
             ) : (
               <Pressable style={styles.editProfileButton} onPress={startEditing} hitSlop={8}>
                 <Ionicons name="pencil-outline" size={14} color={colors.accentStrong} />
-                <Text style={styles.editProfileText}>Edit profile</Text>
+                <Text style={styles.editProfileText}>{t("profile.editProfile")}</Text>
               </Pressable>
             )}
+
+            <View style={styles.languageRow}>
+              <Text style={styles.languageLabel}>{t("language.title")}</Text>
+              <View style={styles.languagePicker}>
+                {SUPPORTED_LANGUAGES.map((lang) => (
+                  <Pressable
+                    key={lang}
+                    style={[styles.languageOption, i18n.language === lang && styles.languageOptionActive]}
+                    onPress={() => setLanguage(lang as SupportedLanguage)}
+                  >
+                    <Text style={[styles.languageOptionText, i18n.language === lang && styles.languageOptionTextActive]}>
+                      {t(`language.${lang}`)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
           </View>
 
           <View style={styles.leaderboardSection}>
@@ -383,7 +452,7 @@ export default function ProfileScreen() {
                 onPress={() => setActiveTab("been_there")}
               >
                 <Text style={[styles.tabButtonText, activeTab === "been_there" && styles.tabButtonTextActive]}>
-                  Been there
+                  {t("profile.tabs.beenThere")}
                 </Text>
               </Pressable>
               <Pressable
@@ -391,7 +460,7 @@ export default function ProfileScreen() {
                 onPress={() => setActiveTab("want_to_go")}
               >
                 <Text style={[styles.tabButtonText, activeTab === "want_to_go" && styles.tabButtonTextActive]}>
-                  Want to go
+                  {t("profile.tabs.wantToGo")}
                 </Text>
               </Pressable>
               <Pressable
@@ -399,7 +468,7 @@ export default function ProfileScreen() {
                 onPress={() => setActiveTab("collections")}
               >
                 <Text style={[styles.tabButtonText, activeTab === "collections" && styles.tabButtonTextActive]}>
-                  Collections
+                  {t("profile.tabs.collections")}
                 </Text>
               </Pressable>
             </View>
@@ -541,6 +610,7 @@ export default function ProfileScreen() {
 
       {showLoggedMap ? (
         <LoggedBathroomsMap
+          title={t("profile.usersMap", { name: displayLabel })}
           bathrooms={loggedBathrooms
             .filter((r) => r.bathroom)
             .map((r) => ({
@@ -548,6 +618,7 @@ export default function ProfileScreen() {
               name: r.bathroom!.name,
               latitude: r.bathroom!.latitude,
               longitude: r.bathroom!.longitude,
+              overallRating: r.overall_rating,
             }))}
           onClose={() => setShowLoggedMap(false)}
           onSelectBathroom={(id) => {
@@ -571,8 +642,39 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   screenHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  headerIconButton: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerBadge: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    minWidth: 15,
+    height: 15,
+    paddingHorizontal: 3,
+    borderRadius: radii.full,
+    backgroundColor: colors.danger,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerBadgeText: {
+    fontSize: 9,
+    fontWeight: fontWeight.bold,
+    color: colors.textOnAccent,
   },
   scrollContent: {
     alignItems: "center",
@@ -710,6 +812,45 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     fontWeight: fontWeight.medium,
     color: colors.accentStrong,
+  },
+  languageRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  languageLabel: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+  },
+  languagePicker: {
+    flexDirection: "row",
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radii.full,
+    padding: 2,
+  },
+  languageOption: {
+    paddingHorizontal: spacing.sm,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radii.full,
+  },
+  languageOptionActive: {
+    backgroundColor: colors.surface,
+    ...cardShadow("sm"),
+  },
+  languageOptionText: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
+    color: colors.textSecondary,
+  },
+  languageOptionTextActive: {
+    color: colors.textPrimary,
+    fontWeight: fontWeight.semibold,
   },
   statsRow: {
     flexDirection: "row",

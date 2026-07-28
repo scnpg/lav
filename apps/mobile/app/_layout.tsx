@@ -1,14 +1,27 @@
 import { Stack, usePathname, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { LoadingScreen } from "../src/components/LoadingScreen";
+import { initLanguage } from "../src/i18n";
 import { AuthProvider, useAuth } from "../src/lib/auth";
 import { colors } from "../src/theme";
 
 export default function RootLayout() {
+  // Gated on languageReady (not just fired-and-forgotten) so the very first
+  // render already has the right strings loaded - initLanguage's AsyncStorage
+  // read is async, and letting screens mount before it resolves would flash
+  // English (or whatever i18next's synchronous init default is) for a beat
+  // even for someone who chose 繁體中文/Español last time.
+  const [languageReady, setLanguageReady] = useState(false);
+  useEffect(() => {
+    initLanguage().finally(() => setLanguageReady(true));
+  }, []);
+
+  if (!languageReady) return <LoadingScreen />;
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>

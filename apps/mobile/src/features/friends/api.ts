@@ -62,6 +62,27 @@ export async function getIncomingRequests(userId: string): Promise<(Friendship &
   return rows.map((r) => ({ ...r, requester: byId.get(r.user_id) ?? null }));
 }
 
+/** Requests I've sent that are still awaiting the other person - the Requests screen's "Sent" section. */
+export async function getOutgoingRequests(userId: string): Promise<(Friendship & { recipient: ProfileLite | null })[]> {
+  const { data, error } = await supabase
+    .from("friendships")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("status", "requested");
+  if (error) throw new Error(error.message);
+  const rows = data ?? [];
+  if (rows.length === 0) return [];
+
+  const recipientIds = [...new Set(rows.map((r) => r.friend_id))];
+  const { data: profiles, error: profilesError } = await supabase
+    .from("profiles")
+    .select("id, username, display_name, avatar_url, level")
+    .in("id", recipientIds);
+  if (profilesError) throw new Error(profilesError.message);
+  const byId = new Map((profiles ?? []).map((p) => [p.id, p]));
+  return rows.map((r) => ({ ...r, recipient: byId.get(r.friend_id) ?? null }));
+}
+
 /** How userId and otherUserId relate, from userId's point of view - drives the button shown on a public profile. */
 export async function getFriendshipState(userId: string, otherUserId: string): Promise<FriendshipState> {
   const { data, error } = await supabase

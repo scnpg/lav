@@ -240,7 +240,7 @@ export default function BathroomDetailScreen() {
           </View>
 
           <RatingHeader
-            globalScore={stats?.overall_mode ?? null}
+            globalScore={stats?.avg_overall ?? null}
             reviewCount={stats?.review_count ?? 0}
             yourRating={yourRating}
           />

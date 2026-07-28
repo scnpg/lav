@@ -14,10 +14,10 @@ function formatTen(value: number): string {
 }
 
 // "Global: 8.7 | Yours: 9.2" - the headline number on the redesigned
-// bathroom screen. globalScore is the community mode (bathrooms.overall_score /
-// get_bathroom_review_stats.overall_mode - see 0028/0029), not an average.
-// Either half falls back to a plain dash rather than 0.0 when there's no
-// data yet (0.0 would read as "rated zero", not "unrated").
+// bathroom screen. globalScore is the mean of every reviewer's overall
+// rating (bathrooms.overall_score / get_bathroom_review_stats.avg_overall -
+// see 0022/0037). Either half falls back to a plain dash rather than 0.0
+// when there's no data yet (0.0 would read as "rated zero", not "unrated").
 export function RatingHeader({ globalScore, reviewCount, yourRating }: RatingHeaderProps) {
   return (
     <View style={styles.row}>

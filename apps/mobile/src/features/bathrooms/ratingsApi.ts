@@ -45,14 +45,14 @@ export async function getMyReview(bathroomId: string, userId: string): Promise<B
 
 const EMPTY_STATS: BathroomReviewStats = {
   review_count: 0,
-  overall_mode: null,
+  avg_overall: null,
   avg_cleanliness: null,
   avg_smell: null,
   avg_ambience: null,
   avg_privacy: null,
 };
 
-/** Live-computed stats (see get_bathroom_review_stats() in 0016/0029) - never denormalized onto bathrooms, this is a single indexed-bathroom_id lookup regardless of table size. overall_mode is the statistical mode, matching bathrooms.overall_score; the rest stay plain averages. */
+/** Live-computed stats (see get_bathroom_review_stats() in 0016/0037) - never denormalized onto bathrooms, this is a single indexed-bathroom_id lookup regardless of table size. avg_overall matches bathrooms.overall_score (both the mean of overall_rating). */
 export async function getBathroomReviewStats(bathroomId: string): Promise<BathroomReviewStats> {
   const { data, error } = await supabase.rpc("get_bathroom_review_stats", { target_bathroom_id: bathroomId });
   if (error) throw new Error(error.message);

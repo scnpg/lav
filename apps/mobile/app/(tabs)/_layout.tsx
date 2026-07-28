@@ -1,9 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
+import { useTranslation } from "react-i18next";
 
 import { colors } from "../../src/theme";
 
 export default function TabsLayout() {
+  const { t } = useTranslation();
   return (
     <Tabs
       screenOptions={{
@@ -19,7 +21,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Map",
+          title: t("tabs.map"),
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? "map" : "map-outline"} size={size} color={color} />
           ),
@@ -28,7 +30,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="feed"
         options={{
-          title: "Feed",
+          title: t("tabs.feed"),
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? "newspaper" : "newspaper-outline"} size={size} color={color} />
           ),
@@ -37,7 +39,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="search"
         options={{
-          title: "Search",
+          title: t("tabs.search"),
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? "search" : "search-outline"} size={size} color={color} />
           ),
@@ -46,7 +48,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="lists"
         options={{
-          title: "Lists",
+          title: t("tabs.lists"),
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? "albums" : "albums-outline"} size={size} color={color} />
           ),
@@ -55,7 +57,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
+          title: t("tabs.profile"),
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? "person" : "person-outline"} size={size} color={color} />
           ),

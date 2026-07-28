@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BathroomBottomCard } from "../../src/components/map/BathroomBottomCard";
@@ -26,12 +27,6 @@ import { haversineDistanceMeters } from "../../src/lib/geo";
 import { cardShadow, colors, fontSize, fontWeight, radii, spacing } from "../../src/theme";
 import type { BathroomNearby, BathroomPublic, BathroomReview } from "../../src/types/database";
 
-const FILTER_OPTIONS: FilterOption[] = [
-  { key: "free", label: "Free" },
-  { key: "wheelchair", label: "Wheelchair accessible" },
-  { key: "bidet", label: "Bidet" },
-  { key: "public_only", label: "Public only" },
-];
 
 // Roughly "wider than a city" - 1 degree of latitude is ~111km/69mi
 // everywhere, and 1 degree of longitude is at most that (less away from the
@@ -48,6 +43,16 @@ function isViewportTooWide(bounds: MapBounds): boolean {
 }
 
 export default function MapScreen() {
+  const { t } = useTranslation();
+  const FILTER_OPTIONS: FilterOption[] = useMemo(
+    () => [
+      { key: "free", label: t("map.filters.free") },
+      { key: "wheelchair", label: t("map.filters.wheelchair") },
+      { key: "bidet", label: t("map.filters.bidet") },
+      { key: "public_only", label: t("map.filters.publicOnly") },
+    ],
+    [t]
+  );
   const [bathrooms, setBathrooms] = useState<BathroomNearby[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -430,16 +435,17 @@ export default function MapScreen() {
   // stuck at whatever it loaded with until the next viewport refetch. Two
   // steps: an instant optimistic bump to the just-submitted score (so the
   // badge updates the moment the sheet closes, no round-trip wait), then a
-  // quiet reconciliation against the real multi-reviewer mode a moment
-  // later (bathrooms.overall_score and this RPC both switched from average
-  // to mode - see 0028/0029). Neither step touches selectedId/mapBounds/camera
-  // state, so this never triggers a refetch of the viewport or a camera move.
+  // quiet reconciliation against the real multi-reviewer mean a moment later
+  // (bathrooms.overall_score and this RPC are both the mean of
+  // overall_rating - see 0022/0037). Neither step touches
+  // selectedId/mapBounds/camera state, so this never triggers a refetch of
+  // the viewport or a camera move.
   function handleReviewSaved(bathroomId: string, review: BathroomReview) {
     setBathrooms((prev) => prev.map((b) => (b.id === bathroomId ? { ...b, overall_score: review.overall_rating } : b)));
     getBathroomReviewStats(bathroomId).then((stats) => {
-      if (stats.overall_mode === null) return;
+      if (stats.avg_overall === null) return;
       setBathrooms((prev) =>
-        prev.map((b) => (b.id === bathroomId ? { ...b, overall_score: stats.overall_mode! } : b))
+        prev.map((b) => (b.id === bathroomId ? { ...b, overall_score: stats.avg_overall! } : b))
       );
     });
   }
@@ -488,24 +494,24 @@ export default function MapScreen() {
         {tooZoomedOut ? (
           <View style={styles.overlayBanner} pointerEvents="none">
             <Ionicons name="search-outline" size={16} color={colors.textSecondary} />
-            <Text style={styles.overlayBannerText}>Zoom in to view restrooms</Text>
+            <Text style={styles.overlayBannerText}>{t("map.zoomToView")}</Text>
           </View>
         ) : loading ? (
           <View style={styles.overlayBanner} pointerEvents="none">
             <ArabesqueLoader size={20} color={colors.accentStrong} />
-            <Text style={styles.overlayBannerText}>Loading bathrooms...</Text>
+            <Text style={styles.overlayBannerText}>{t("map.loadingBathrooms")}</Text>
           </View>
         ) : loadError ? (
           <View style={[styles.overlayBanner, styles.errorBanner]}>
             <Text style={styles.overlayBannerText}>{loadError}</Text>
             <Pressable onPress={handleRetry}>
-              <Text style={styles.retryText}>Retry</Text>
+              <Text style={styles.retryText}>{t("common.retry")}</Text>
             </Pressable>
           </View>
         ) : showingCachedBathrooms ? (
           <View style={styles.overlayBanner} pointerEvents="none">
             <Ionicons name="cloud-offline-outline" size={16} color={colors.textSecondary} />
-            <Text style={styles.overlayBannerText}>Showing saved results - poor connection</Text>
+            <Text style={styles.overlayBannerText}>{t("map.showingCached")}</Text>
           </View>
         ) : null}
 
@@ -514,7 +520,7 @@ export default function MapScreen() {
           onPress={handleUseMyLocation}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel="Center map on my location"
+          accessibilityLabel={t("map.locateMe")}
         >
           {locationStatus === "requesting" ? (
             <ActivityIndicator size="small" color={colors.accentStrong} />
@@ -537,10 +543,10 @@ export default function MapScreen() {
           }}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel="Add a new bathroom"
+          accessibilityLabel={t("map.addBathroom")}
         >
           <Ionicons name="add" size={18} color={colors.textOnAccent} />
-          <Text style={styles.addButtonText}>Submit</Text>
+          <Text style={styles.addButtonText}>{t("map.submitLabel")}</Text>
         </PressableScale>
       </View>
 

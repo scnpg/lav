@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ArabesquePattern } from "../../src/components/ArabesquePattern";
@@ -9,6 +10,7 @@ import { useAuth } from "../../src/lib/auth";
 import { colors, fontSize, fontWeight, lineHeight, radii, spacing } from "../../src/theme";
 
 export default function SignInScreen() {
+  const { t } = useTranslation();
   const { signInWithPassword } = useAuth();
   const router = useRouter();
   const [identifier, setIdentifier] = useState("");
@@ -33,13 +35,13 @@ export default function SignInScreen() {
       </View>
       <View style={styles.content}>
         <LavLogo size={32} />
-        <Text style={styles.description}>Sign in to find bathrooms near you.</Text>
+        <Text style={styles.description}>{t("auth.signIn.description")}</Text>
 
         <View style={styles.form}>
           <TextInput
             value={identifier}
             onChangeText={setIdentifier}
-            placeholder="Email or username"
+            placeholder={t("auth.signIn.identifierPlaceholder")}
             placeholderTextColor={colors.textMuted}
             style={styles.input}
             autoCapitalize="none"
@@ -49,7 +51,7 @@ export default function SignInScreen() {
           <TextInput
             value={password}
             onChangeText={setPassword}
-            placeholder="Password"
+            placeholder={t("auth.signIn.passwordPlaceholder")}
             placeholderTextColor={colors.textMuted}
             style={styles.input}
             secureTextEntry
@@ -61,7 +63,7 @@ export default function SignInScreen() {
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <Pressable style={styles.forgotPasswordRow} onPress={() => router.push("/auth/forgot-password")} hitSlop={8}>
-            <Text style={styles.linkText}>Forgot password?</Text>
+            <Text style={styles.linkText}>{t("auth.signIn.forgotPassword")}</Text>
           </Pressable>
 
           <Pressable
@@ -72,12 +74,12 @@ export default function SignInScreen() {
             {submitting ? (
               <ActivityIndicator color={colors.textOnAccent} />
             ) : (
-              <Text style={styles.buttonText}>Sign in</Text>
+              <Text style={styles.buttonText}>{t("auth.signIn.submit")}</Text>
             )}
           </Pressable>
 
           <Pressable style={styles.linkRow} onPress={() => router.push("/auth/sign-up")} hitSlop={8}>
-            <Text style={styles.linkText}>Don't have an account? Sign up</Text>
+            <Text style={styles.linkText}>{t("auth.signIn.noAccount")}</Text>
           </Pressable>
         </View>
       </View>

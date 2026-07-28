@@ -226,7 +226,7 @@ export interface BathroomReview {
 
 export interface BathroomReviewStats {
   review_count: number;
-  overall_mode: number | null;
+  avg_overall: number | null;
   avg_cleanliness: number | null;
   avg_smell: number | null;
   avg_ambience: number | null;
@@ -299,6 +299,38 @@ export interface Friendship {
   user_id: string;
   friend_id: string;
   status: "requested" | "accepted";
+  created_at: string;
+}
+
+// 0038_review_likes_replies_and_notifications.sql - a review's likes/replies,
+// no admin gate on either (see that migration's own header comment for which
+// two things in this app actually stay gated).
+export interface ReviewLike {
+  id: string;
+  review_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export interface ReviewReply {
+  id: string;
+  review_id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+}
+
+// System-populated only (see migration - no client insert policy). type
+// determines which of review_id/friendship_id is set: friend_request/
+// friend_accept carry friendship_id, review_like/review_reply carry review_id.
+export interface Notification {
+  id: string;
+  recipient_id: string;
+  actor_id: string | null;
+  type: "friend_request" | "friend_accept" | "review_like" | "review_reply";
+  review_id: string | null;
+  friendship_id: string | null;
+  read: boolean;
   created_at: string;
 }
 
@@ -424,6 +456,18 @@ export interface Database {
         BathroomNameSubmission,
         Pick<BathroomNameSubmission, "bathroom_id" | "user_id" | "submitted_name"> &
           Partial<Omit<BathroomNameSubmission, "bathroom_id" | "user_id" | "submitted_name">>
+      >;
+      review_likes: TableDef<
+        ReviewLike,
+        Pick<ReviewLike, "review_id" | "user_id"> & Partial<Omit<ReviewLike, "review_id" | "user_id">>
+      >;
+      review_replies: TableDef<
+        ReviewReply,
+        Pick<ReviewReply, "review_id" | "user_id" | "body"> & Partial<Omit<ReviewReply, "review_id" | "user_id" | "body">>
+      >;
+      notifications: TableDef<
+        Notification,
+        Pick<Notification, "recipient_id" | "type"> & Partial<Omit<Notification, "recipient_id" | "type">>
       >;
     };
     Views: Record<string, never>;

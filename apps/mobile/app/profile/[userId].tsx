@@ -3,9 +3,11 @@ import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { LevelBadge } from "../../src/components/LevelBadge";
+import { LoggedBathroomsMap } from "../../src/components/LoggedBathroomsMap";
 import { getMyLoggedBathrooms, type LoggedBathroom } from "../../src/features/bathrooms/ratingsApi";
 import {
   acceptFriendRequest,
@@ -28,6 +30,7 @@ type Tab = "been_there" | "collections";
 // anyone else's anyway). "Been there" and public collections are visible to
 // everyone by design - that's the whole point of a social leaderboard.
 export default function PublicProfileScreen() {
+  const { t } = useTranslation();
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -42,6 +45,7 @@ export default function PublicProfileScreen() {
   const [activeTab, setActiveTab] = useState<Tab>("been_there");
   const [friendState, setFriendState] = useState<FriendshipState>("none");
   const [friendActionBusy, setFriendActionBusy] = useState(false);
+  const [showLoggedMap, setShowLoggedMap] = useState(false);
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -132,6 +136,22 @@ export default function PublicProfileScreen() {
           </Pressable>
         </View>
 
+        {friendState === "incoming" ? (
+          <Pressable
+            style={styles.confirmBanner}
+            onPress={handleFriendAction}
+            disabled={friendActionBusy}
+            accessibilityRole="button"
+            accessibilityLabel="Confirm friend request"
+          >
+            <Ionicons name="person-add" size={16} color={colors.textOnAccent} />
+            <Text style={styles.confirmBannerText}>
+              {displayLabel} sent you a friend request - Confirm friend request?
+            </Text>
+            {friendActionBusy ? <ActivityIndicator size="small" color={colors.textOnAccent} /> : null}
+          </Pressable>
+        ) : null}
+
         <View style={styles.contentInner}>
           <View style={styles.identityBlock}>
             <View style={styles.avatar}>
@@ -196,10 +216,16 @@ export default function PublicProfileScreen() {
             ) : null}
 
             <View style={styles.statsRow}>
-              <View style={styles.statBlock}>
+              <Pressable
+                style={styles.statBlock}
+                onPress={() => loggedBathrooms.length > 0 && setShowLoggedMap(true)}
+                disabled={loggedBathrooms.length === 0}
+                accessibilityRole="button"
+                accessibilityLabel={`View ${displayLabel}'s map`}
+              >
                 <Text style={styles.statValue}>{loggedBathrooms.length}</Text>
                 <Text style={styles.statLabel}>Logged</Text>
-              </View>
+              </Pressable>
               <View style={styles.statDivider} />
               <View style={styles.statBlock}>
                 <Text style={styles.statValue}>{profile.points}</Text>
@@ -290,6 +316,26 @@ export default function PublicProfileScreen() {
           )}
         </View>
       </ScrollView>
+
+      {showLoggedMap ? (
+        <LoggedBathroomsMap
+          title={t("profile.usersMap", { name: displayLabel })}
+          bathrooms={loggedBathrooms
+            .filter((r) => r.bathroom)
+            .map((r) => ({
+              id: r.bathroom!.id,
+              name: r.bathroom!.name,
+              latitude: r.bathroom!.latitude,
+              longitude: r.bathroom!.longitude,
+              overallRating: r.overall_rating,
+            }))}
+          onClose={() => setShowLoggedMap(false)}
+          onSelectBathroom={(id) => {
+            setShowLoggedMap(false);
+            router.push(`/bathrooms/${id}`);
+          }}
+        />
+      ) : null}
     </View>
   );
 }
@@ -381,6 +427,23 @@ const styles = StyleSheet.create({
     color: colors.accentStrong,
   },
   friendButtonTextActive: {
+    color: colors.textOnAccent,
+  },
+  confirmBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.lg,
+    backgroundColor: colors.accentStrong,
+  },
+  confirmBannerText: {
+    flex: 1,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
     color: colors.textOnAccent,
   },
   statsRow: {

@@ -1,0 +1,81 @@
+{
+  "common": {
+    "submit": "送出",
+    "cancel": "取消",
+    "save": "儲存",
+    "close": "關閉",
+    "retry": "重試",
+    "back": "返回"
+  },
+  "tabs": {
+    "map": "地圖",
+    "feed": "動態",
+    "search": "搜尋",
+    "lists": "清單",
+    "profile": "個人檔案"
+  },
+  "map": {
+    "filters": {
+      "free": "免費",
+      "wheelchair": "無障礙",
+      "bidet": "免治馬桶",
+      "publicOnly": "僅限公共"
+    },
+    "loadingBathrooms": "正在載入廁所...",
+    "zoomToView": "放大以檢視廁所",
+    "showingCached": "顯示已儲存的結果 - 連線不佳",
+    "locateMe": "將地圖置中於我的位置",
+    "addBathroom": "新增廁所",
+    "submitLabel": "送出"
+  },
+  "auth": {
+    "signIn": {
+      "title": "登入",
+      "description": "登入以尋找附近的廁所。",
+      "identifierPlaceholder": "電子郵件或使用者名稱",
+      "passwordPlaceholder": "密碼",
+      "forgotPassword": "忘記密碼？",
+      "submit": "登入",
+      "noAccount": "還沒有帳號？註冊"
+    },
+    "signUp": {
+      "title": "註冊",
+      "description": "建立帳號以儲存地點並提交新地點。",
+      "emailPlaceholder": "電子郵件",
+      "passwordPlaceholder": "密碼",
+      "confirmPasswordPlaceholder": "確認密碼",
+      "submit": "註冊",
+      "haveAccount": "已經有帳號？登入"
+    }
+  },
+  "profile": {
+    "editProfile": "編輯個人檔案",
+    "signOut": "登出",
+    "stats": {
+      "logged": "已記錄",
+      "dayStreak": "連續天數",
+      "wantToGo": "想去",
+      "friends": "好友"
+    },
+    "tabs": {
+      "beenThere": "去過",
+      "wantToGo": "想去",
+      "collections": "收藏"
+    },
+    "points_other": "{{count}} 點",
+    "usersMap": "{{name}}的地圖"
+  },
+  "feed": {
+    "tabs": {
+      "friends": "好友",
+      "popular": "附近熱門",
+      "trending": "全國熱門"
+    }
+  },
+  "language": {
+    "title": "語言",
+    "en": "English",
+    "zh-Hant": "繁體中文",
+    "es": "Español"
+  }
+}

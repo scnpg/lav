@@ -1,0 +1,82 @@
+{
+  "common": {
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "save": "Save",
+    "close": "Close",
+    "retry": "Retry",
+    "back": "Back"
+  },
+  "tabs": {
+    "map": "Map",
+    "feed": "Feed",
+    "search": "Search",
+    "lists": "Lists",
+    "profile": "Profile"
+  },
+  "map": {
+    "filters": {
+      "free": "Free",
+      "wheelchair": "Wheelchair accessible",
+      "bidet": "Bidet",
+      "publicOnly": "Public only"
+    },
+    "loadingBathrooms": "Loading bathrooms...",
+    "zoomToView": "Zoom in to view restrooms",
+    "showingCached": "Showing saved results - poor connection",
+    "locateMe": "Center map on my location",
+    "addBathroom": "Add a new bathroom",
+    "submitLabel": "Submit"
+  },
+  "auth": {
+    "signIn": {
+      "title": "Sign in",
+      "description": "Sign in to find bathrooms near you.",
+      "identifierPlaceholder": "Email or username",
+      "passwordPlaceholder": "Password",
+      "forgotPassword": "Forgot password?",
+      "submit": "Sign in",
+      "noAccount": "Don't have an account? Sign up"
+    },
+    "signUp": {
+      "title": "Sign up",
+      "description": "Create an account to save spots and submit new ones.",
+      "emailPlaceholder": "Email",
+      "passwordPlaceholder": "Password",
+      "confirmPasswordPlaceholder": "Confirm password",
+      "submit": "Sign up",
+      "haveAccount": "Already have an account? Sign in"
+    }
+  },
+  "profile": {
+    "editProfile": "Edit profile",
+    "signOut": "Sign out",
+    "stats": {
+      "logged": "Logged",
+      "dayStreak": "Day streak",
+      "wantToGo": "Want to go",
+      "friends": "Friends"
+    },
+    "tabs": {
+      "beenThere": "Been there",
+      "wantToGo": "Want to go",
+      "collections": "Collections"
+    },
+    "points_one": "{{count}} point",
+    "points_other": "{{count}} points",
+    "usersMap": "{{name}}'s map"
+  },
+  "feed": {
+    "tabs": {
+      "friends": "Friends",
+      "popular": "Popular Near Me",
+      "trending": "National Trending"
+    }
+  },
+  "language": {
+    "title": "Language",
+    "en": "English",
+    "zh-Hant": "繁體中文",
+    "es": "Español"
+  }
+}

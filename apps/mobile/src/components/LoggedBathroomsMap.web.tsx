@@ -12,19 +12,42 @@ export interface LoggedMapPin {
   name: string;
   latitude: number;
   longitude: number;
+  overallRating: number | null;
 }
 
 interface LoggedBathroomsMapProps {
   bathrooms: LoggedMapPin[];
+  /** e.g. "Ian's map" on a profile - falls back to a plain count if omitted. */
+  title?: string;
   onClose: () => void;
   onSelectBathroom: (id: string) => void;
+}
+
+function createRatingPinElement(rating: number | null): HTMLDivElement {
+  const el = document.createElement("div");
+  el.style.minWidth = "30px";
+  el.style.height = "30px";
+  el.style.padding = "0 6px";
+  el.style.borderRadius = "999px";
+  el.style.backgroundColor = colors.accentStrong;
+  el.style.border = `2px solid ${colors.surface}`;
+  el.style.display = "flex";
+  el.style.alignItems = "center";
+  el.style.justifyContent = "center";
+  el.style.fontSize = "12px";
+  el.style.fontWeight = "700";
+  el.style.color = colors.textOnAccent;
+  el.style.cursor = "pointer";
+  el.style.boxShadow = "0 2px 4px rgba(37, 40, 36, 0.3)";
+  el.textContent = rating !== null ? `★ ${rating.toFixed(1)}` : "★";
+  return el;
 }
 
 // A deliberately minimal third MapLibre instance (alongside MapView.web.tsx
 // and PinPickerMap.web.tsx) - a fixed, already-known set of pins with no
 // clustering/viewport-fetching, so fitBounds is enough rather than the main
 // map's supercluster machinery.
-export function LoggedBathroomsMap({ bathrooms, onClose, onSelectBathroom }: LoggedBathroomsMapProps) {
+export function LoggedBathroomsMap({ bathrooms, title, onClose, onSelectBathroom }: LoggedBathroomsMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -49,11 +72,9 @@ export function LoggedBathroomsMap({ bathrooms, onClose, onSelectBathroom }: Log
       const bounds = new LngLatBounds();
       bathrooms.forEach((b) => {
         bounds.extend([b.longitude, b.latitude]);
-        const marker = new Marker({ color: colors.accentStrong })
-          .setLngLat([b.longitude, b.latitude])
-          .addTo(map);
-        marker.getElement().style.cursor = "pointer";
-        marker.getElement().addEventListener("click", () => onSelectBathroom(b.id));
+        const el = createRatingPinElement(b.overallRating);
+        const marker = new Marker({ element: el }).setLngLat([b.longitude, b.latitude]).addTo(map);
+        el.addEventListener("click", () => onSelectBathroom(b.id));
       });
 
       if (bathrooms.length === 1) {
@@ -72,7 +93,7 @@ export function LoggedBathroomsMap({ bathrooms, onClose, onSelectBathroom }: Log
       <div ref={containerRef} style={{ position: "absolute", inset: 0 }} />
       <View style={styles.header}>
         <Text style={styles.title}>
-          {bathrooms.length} bathroom{bathrooms.length === 1 ? "" : "s"} logged
+          {title ?? `${bathrooms.length} bathroom${bathrooms.length === 1 ? "" : "s"} logged`}
         </Text>
         <Pressable
           style={styles.closeButton}
