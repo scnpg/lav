@@ -11,6 +11,7 @@ import { LoggedBathroomsMap } from "../../src/components/LoggedBathroomsMap";
 import { getMyLoggedBathrooms, type LoggedBathroom } from "../../src/features/bathrooms/ratingsApi";
 import {
   acceptFriendRequest,
+  getFriends,
   getFriendshipState,
   removeFriendship,
   sendFriendRequest,
@@ -38,6 +39,7 @@ export default function PublicProfileScreen() {
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loggedBathrooms, setLoggedBathrooms] = useState<LoggedBathroom[]>([]);
+  const [friendCount, setFriendCount] = useState(0);
   const [lists, setLists] = useState<BathroomList[]>([]);
   const [listCounts, setListCounts] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -52,14 +54,16 @@ export default function PublicProfileScreen() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [profileRow, logged, listRows] = await Promise.all([
+      const [profileRow, logged, listRows, friends] = await Promise.all([
         getPublicProfile(userId),
         getMyLoggedBathrooms(userId),
         getListsForUser(userId),
+        getFriends(userId),
       ]);
       setProfile(profileRow);
       setLoggedBathrooms(logged);
       setLists(listRows);
+      setFriendCount(friends.length);
       setListCounts(await getListItemCounts(listRows.map((l) => l.id)));
       if (viewer && viewer.id !== userId) {
         setFriendState(await getFriendshipState(viewer.id, userId));
@@ -236,6 +240,17 @@ export default function PublicProfileScreen() {
                 <Text style={styles.statValue}>{lists.length}</Text>
                 <Text style={styles.statLabel}>Collections</Text>
               </View>
+              <View style={styles.statDivider} />
+              <Pressable
+                style={styles.statBlock}
+                onPress={() => friendCount > 0 && router.push(`/profile/friends?userId=${userId}`)}
+                disabled={friendCount === 0}
+                accessibilityRole="button"
+                accessibilityLabel={`View ${displayLabel}'s friends`}
+              >
+                <Text style={styles.statValue}>{friendCount}</Text>
+                <Text style={styles.statLabel}>Friends</Text>
+              </Pressable>
             </View>
           </View>
 

@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
@@ -28,6 +29,7 @@ type ReplyRow = ReviewReply & { author: ProfileLite | null };
 // review/post rather than a full nested-comment system. Same admin-review-
 // free path as likes: insert/delete straight through RLS, no queue.
 export function ReviewRepliesModal({ reviewId, userId, myProfile, onClose, onCountChange }: ReviewRepliesModalProps) {
+  const router = useRouter();
   const [replies, setReplies] = useState<ReplyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<FormStatus | null>(null);
@@ -62,6 +64,11 @@ export function ReviewRepliesModal({ reviewId, userId, myProfile, onClose, onCou
     } finally {
       setSending(false);
     }
+  }
+
+  function handleOpenProfile(authorId: string) {
+    onClose();
+    router.push(`/profile/${authorId}`);
   }
 
   async function handleDelete(id: string) {
@@ -105,16 +112,24 @@ export function ReviewRepliesModal({ reviewId, userId, myProfile, onClose, onCou
                 const authorName = reply.author?.display_name || reply.author?.username || "Someone";
                 return (
                   <View key={reply.id} style={styles.replyRow}>
-                    <View style={styles.avatar}>
-                      {reply.author?.avatar_url ? (
-                        <Image source={{ uri: reply.author.avatar_url }} style={styles.avatarImage} />
-                      ) : (
-                        <Text style={styles.avatarInitial}>{authorName.charAt(0).toUpperCase()}</Text>
-                      )}
-                    </View>
+                    <Pressable
+                      style={styles.replyAuthorTouchable}
+                      onPress={() => reply.user_id && handleOpenProfile(reply.user_id)}
+                      hitSlop={4}
+                    >
+                      <View style={styles.avatar}>
+                        {reply.author?.avatar_url ? (
+                          <Image source={{ uri: reply.author.avatar_url }} style={styles.avatarImage} />
+                        ) : (
+                          <Text style={styles.avatarInitial}>{authorName.charAt(0).toUpperCase()}</Text>
+                        )}
+                      </View>
+                    </Pressable>
                     <View style={styles.replyMain}>
                       <View style={styles.replyHeaderRow}>
-                        <Text style={styles.replyAuthor}>{authorName}</Text>
+                        <Pressable onPress={() => reply.user_id && handleOpenProfile(reply.user_id)} hitSlop={4}>
+                          <Text style={styles.replyAuthor}>{authorName}</Text>
+                        </Pressable>
                         <Text style={styles.replyTime}>{formatRelativeTime(reply.created_at)}</Text>
                       </View>
                       <Text style={styles.replyBody}>{reply.body}</Text>
@@ -220,6 +235,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: spacing.sm,
     alignItems: "flex-start",
+  },
+  replyAuthorTouchable: {
+    alignSelf: "flex-start",
   },
   avatar: {
     width: 30,

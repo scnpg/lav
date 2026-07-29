@@ -19,7 +19,8 @@
       "free": "免費",
       "wheelchair": "無障礙",
       "bidet": "免治馬桶",
-      "publicOnly": "僅限公共"
+      "publicOnly": "僅限公共",
+      "emergency": "最近的開放廁所"
     },
     "loadingBathrooms": "正在載入廁所...",
     "zoomToView": "放大以檢視廁所",

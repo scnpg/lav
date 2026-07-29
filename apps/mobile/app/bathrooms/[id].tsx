@@ -10,8 +10,10 @@ import { LevelBadge } from "../../src/components/LevelBadge";
 import { Toast } from "../../src/components/Toast";
 import { BathroomActionPanel } from "../../src/components/bathroom/BathroomActionPanel";
 import { DetailsGrid } from "../../src/components/bathroom/DetailsGrid";
+import { LiveStatusBadge } from "../../src/components/bathroom/LiveStatusBadge";
 import { MediaCarousel } from "../../src/components/bathroom/MediaCarousel";
 import { PhotoGallery } from "../../src/components/bathroom/PhotoGallery";
+import { QuickCheckModal } from "../../src/components/bathroom/QuickCheckModal";
 import { RateBathroomModal } from "../../src/components/bathroom/RateBathroomModal";
 import { RatingHeader } from "../../src/components/bathroom/RatingHeader";
 import { ReportBathroomModal } from "../../src/components/bathroom/ReportBathroomModal";
@@ -27,11 +29,12 @@ import {
   uploadReviewPhoto,
   type BathroomReviewWithAuthor,
 } from "../../src/features/bathrooms/ratingsApi";
+import { getBathroomLiveStatus } from "../../src/features/bathrooms/statusApi";
 import { getListsContainingBathroom } from "../../src/features/lists/api";
 import { useAuth } from "../../src/lib/auth";
 import { formatRelativeTime } from "../../src/lib/format";
 import { cardShadow, colors, fontSize, fontWeight, spacing } from "../../src/theme";
-import type { BathroomImage, BathroomPublic, BathroomReviewStats } from "../../src/types/database";
+import type { BathroomImage, BathroomLiveStatus, BathroomPublic, BathroomReviewStats } from "../../src/types/database";
 import type { VibeTag } from "../../src/types/enums";
 
 // Real detail screen - previously rendered MOCK_BATHROOMS only. Every
@@ -57,6 +60,9 @@ export default function BathroomDetailScreen() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showReportToast, setShowReportToast] = useState(false);
+  const [liveStatus, setLiveStatus] = useState<BathroomLiveStatus | null>(null);
+  const [showQuickCheckModal, setShowQuickCheckModal] = useState(false);
+  const [showQuickCheckToast, setShowQuickCheckToast] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -74,12 +80,18 @@ export default function BathroomDetailScreen() {
       setImages(imageRows);
       setReviews(reviewRows);
       if (user) {
-        const [mine, memberOf] = await Promise.all([getMyReview(id, user.id), getListsContainingBathroom(user.id, id)]);
+        const [mine, memberOf, status] = await Promise.all([
+          getMyReview(id, user.id),
+          getListsContainingBathroom(user.id, id),
+          getBathroomLiveStatus(id),
+        ]);
         setYourRating(mine?.overall_rating ?? null);
         setInAnyCollection(memberOf.size > 0);
+        setLiveStatus(status);
       } else {
         setYourRating(null);
         setInAnyCollection(false);
+        setLiveStatus(null);
       }
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Couldn't load this bathroom.");
@@ -147,6 +159,21 @@ export default function BathroomDetailScreen() {
       return;
     }
     setShowRatingModal(true);
+  }
+
+  function handleOpenQuickCheck() {
+    if (!user) {
+      router.push("/auth/sign-in");
+      return;
+    }
+    setShowQuickCheckModal(true);
+  }
+
+  function handleQuickCheckSubmitted() {
+    setShowQuickCheckModal(false);
+    setShowQuickCheckToast(true);
+    setTimeout(() => setShowQuickCheckToast(false), 2500);
+    if (id) getBathroomLiveStatus(id).then(setLiveStatus);
   }
 
   function handleSuggestEdit() {
@@ -237,6 +264,8 @@ export default function BathroomDetailScreen() {
                 ))}
               </View>
             ) : null}
+
+            <LiveStatusBadge status={liveStatus} />
           </View>
 
           <RatingHeader
@@ -248,6 +277,11 @@ export default function BathroomDetailScreen() {
           <Pressable style={styles.rateButton} onPress={handleRateAndLog}>
             <Ionicons name="star" size={18} color={colors.textOnAccent} />
             <Text style={styles.rateButtonText}>{yourRating !== null ? "Update your rating" : "Rate & log"}</Text>
+          </Pressable>
+
+          <Pressable style={styles.quickCheckButton} onPress={handleOpenQuickCheck}>
+            <Ionicons name="flash-outline" size={16} color={colors.textPrimary} />
+            <Text style={styles.quickCheckButtonText}>Quick check-in (is it open/clean/paper?)</Text>
           </Pressable>
 
           <BathroomActionPanel
@@ -336,7 +370,17 @@ export default function BathroomDetailScreen() {
         />
       ) : null}
 
+      {showQuickCheckModal && user ? (
+        <QuickCheckModal
+          bathroomId={bathroom.id}
+          userId={user.id}
+          onClose={() => setShowQuickCheckModal(false)}
+          onSubmitted={handleQuickCheckSubmitted}
+        />
+      ) : null}
+
       <Toast message="Report submitted - thank you!" visible={showReportToast} />
+      <Toast message="Thanks for the check-in!" visible={showQuickCheckToast} />
     </View>
   );
 }
@@ -428,6 +472,21 @@ const styles = StyleSheet.create({
     fontSize: fontSize.base,
     fontWeight: fontWeight.semibold,
     color: colors.textOnAccent,
+  },
+  quickCheckButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 999,
+    height: 40,
+  },
+  quickCheckButtonText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    color: colors.textPrimary,
   },
   reviewsSection: {
     gap: spacing.md,

@@ -202,6 +202,22 @@ function mapTagsToFields(tags) {
   return { amenities, cost_type, gender_category };
 }
 
+// Best-effort only - full OSM opening_hours syntax (comma-separated day
+// ranges, PH/SH modifiers, etc.) isn't parsed here, just the two cases worth
+// distinguishing for the app's own OpenHours shape (DetailsGrid's
+// formatOpenHours): "24/7" maps to is_24_hours, anything else is kept as the
+// raw OSM string in `notes` rather than dropped - some hours info beats
+// none, and it's still legible to a person even unparsed. This only ever
+// covers bathrooms ingested from here on - it does not backfill the
+// ~353k rows already in the table, which would mean re-querying Overpass
+// for all of them at the same scale as the original ingestion runs.
+function parseOpeningHours(tags) {
+  const raw = tags.opening_hours;
+  if (!raw) return {};
+  if (raw === "24/7") return { is_24_hours: true };
+  return { notes: raw };
+}
+
 function buildBathroomRow(point, name, tags) {
   const { amenities, cost_type, gender_category } = mapTagsToFields(tags);
   return {
@@ -215,7 +231,7 @@ function buildBathroomRow(point, name, tags) {
     cost_type,
     gender_category,
     amenities,
-    open_hours: {},
+    open_hours: parseOpeningHours(tags),
     tags: [],
   };
 }

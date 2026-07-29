@@ -334,6 +334,31 @@ export interface Notification {
   created_at: string;
 }
 
+// 0039_quick_checks_live_status_and_comparisons.sql - the Quick Verification
+// Sheet's append-only check-in log. Never updated/deleted, only inserted.
+export interface BathroomStatusCheck {
+  id: string;
+  bathroom_id: string;
+  user_id: string;
+  is_open: boolean;
+  is_clean: boolean;
+  has_paper: boolean;
+  closure_reason: "out_of_order" | "cleaning" | "other" | null;
+  line_length: "none" | "short" | "long";
+  created_at: string;
+}
+
+/** get_bathroom_live_status() RPC result - null when nothing was reported recently. */
+export interface BathroomLiveStatus {
+  is_open: boolean;
+  is_clean: boolean;
+  has_paper: boolean;
+  closure_reason: "out_of_order" | "cleaning" | "other" | null;
+  line_length: "none" | "short" | "long";
+  reported_at: string;
+  checks_in_window: number;
+}
+
 // The moderation queue (0023_social_and_submissions.sql) - separate from the
 // existing direct-write paths (submitBathroom/updateBathroomDetails).
 // bathroom_id null + name/latitude/longitude set = a brand new pin proposal;
@@ -469,6 +494,11 @@ export interface Database {
         Notification,
         Pick<Notification, "recipient_id" | "type"> & Partial<Omit<Notification, "recipient_id" | "type">>
       >;
+      bathroom_status_checks: TableDef<
+        BathroomStatusCheck,
+        Pick<BathroomStatusCheck, "bathroom_id" | "user_id" | "is_open" | "is_clean" | "has_paper"> &
+          Partial<Omit<BathroomStatusCheck, "bathroom_id" | "user_id" | "is_open" | "is_clean" | "has_paper">>
+      >;
     };
     Views: Record<string, never>;
     Functions: {
@@ -513,6 +543,26 @@ export interface Database {
       resolve_username_to_email: {
         Args: { input_username: string };
         Returns: string;
+      };
+      get_bathroom_live_status: {
+        Args: { target_bathroom_id: string; recency_hours?: number };
+        Returns: BathroomLiveStatus[];
+      };
+      get_bathrooms_recently_closed: {
+        Args: { bathroom_ids: string[]; recency_hours?: number };
+        Returns: { bathroom_id: string }[];
+      };
+      submit_bathroom_comparison: {
+        Args: { p_bathroom_id_a: string; p_bathroom_id_b: string; p_winner_bathroom_id: string };
+        Returns: void;
+      };
+      get_my_ranked_bathroom_ids: {
+        Args: { p_limit?: number };
+        Returns: { bathroom_id: string; rank: number }[];
+      };
+      get_random_comparison_candidate: {
+        Args: { p_exclude_bathroom_id: string };
+        Returns: string | null;
       };
     };
   };

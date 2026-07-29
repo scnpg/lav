@@ -19,7 +19,8 @@
       "free": "Gratis",
       "wheelchair": "Accesible en silla de ruedas",
       "bidet": "Bidé",
-      "publicOnly": "Solo públicos"
+      "publicOnly": "Solo públicos",
+      "emergency": "Más cercano abierto"
     },
     "loadingBathrooms": "Cargando baños...",
     "zoomToView": "Acerca el mapa para ver los baños",

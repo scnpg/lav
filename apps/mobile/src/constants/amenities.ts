@@ -19,6 +19,7 @@ export const AMENITY_LABELS: Record<AmenityKey, string> = {
   full_length_mirror: "Full-length mirror",
   touchless_sink: "Touchless sink",
   touchless_flush: "Touchless flush",
+  single_stall: "Single-stall (private room)",
 };
 
 // Ionicons names (via @expo/vector-icons) used for amenity chips.
@@ -40,6 +41,7 @@ export const AMENITY_ICONS: Record<AmenityKey, string> = {
   full_length_mirror: "body-outline",
   touchless_sink: "hand-left-outline",
   touchless_flush: "refresh-outline",
+  single_stall: "lock-closed-outline",
 };
 
 export const ALL_AMENITIES: AmenityKey[] = [...AMENITY_KEYS];

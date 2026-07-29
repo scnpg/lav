@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -10,27 +10,40 @@ import { FloralBloom } from "../../src/components/ArabesquePattern";
 import { LevelBadge } from "../../src/components/LevelBadge";
 import { getFriends } from "../../src/features/friends/api";
 import { useAuth } from "../../src/lib/auth";
-import type { ProfileLite } from "../../src/lib/profiles";
+import { getPublicProfile, type ProfileLite } from "../../src/lib/profiles";
 import { cardShadow, colors, fontSize, fontWeight, radii, spacing } from "../../src/theme";
 
-// Reached by tapping the Friends count on the (own) Profile screen. Always
-// the signed-in user's own friend list - there's no route param here since
-// nothing currently links to "someone else's friends" (public profiles don't
-// show a friend count to tap in the first place).
+// Reached by tapping the Friends count on either the (own) Profile screen or
+// a public profile - `userId` is only present for the latter (own profile
+// links here with no param, so this falls back to the signed-in user).
+// Tapping a friend in the list pushes another /profile/[friend.id], and from
+// there this same screen again for THEIR friends - a plain router.push each
+// time, so expo-router's stack keeps growing rather than resetting, letting
+// "back" retrace the whole chain.
 export default function FriendsListScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { userId: routeUserId } = useLocalSearchParams<{ userId?: string }>();
+
+  const targetUserId = routeUserId || user?.id;
+  const isOwnList = !routeUserId || routeUserId === user?.id;
 
   const [friends, setFriends] = useState<ProfileLite[]>([]);
+  const [headerName, setHeaderName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
-    getFriends(user.id)
-      .then(setFriends)
-      .finally(() => setLoading(false));
-  }, [user]);
+    if (!targetUserId) return;
+    setLoading(true);
+    const tasks: Promise<unknown>[] = [getFriends(targetUserId).then(setFriends)];
+    if (!isOwnList) {
+      tasks.push(
+        getPublicProfile(targetUserId).then((p) => setHeaderName(p?.display_name || p?.username || "Someone"))
+      );
+    }
+    Promise.all(tasks).finally(() => setLoading(false));
+  }, [targetUserId, isOwnList]);
 
   return (
     <View style={styles.container}>
@@ -38,7 +51,7 @@ export default function FriendsListScreen() {
         <Pressable onPress={() => router.back()} hitSlop={8} style={styles.backButton}>
           <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
         </Pressable>
-        <Text style={styles.headerTitle}>Friends</Text>
+        <Text style={styles.headerTitle}>{isOwnList ? "Friends" : `${headerName ?? "..."}'s friends`}</Text>
         <View style={styles.backButton} />
       </View>
 
@@ -49,7 +62,9 @@ export default function FriendsListScreen() {
       ) : friends.length === 0 ? (
         <View style={styles.centerContent}>
           <FloralBloom size={32} color={colors.borderStrong} />
-          <Text style={styles.emptyText}>No friends yet - add some from their profile.</Text>
+          <Text style={styles.emptyText}>
+            {isOwnList ? "No friends yet - add some from their profile." : "No friends yet."}
+          </Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>

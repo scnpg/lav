@@ -19,7 +19,8 @@
       "free": "Free",
       "wheelchair": "Wheelchair accessible",
       "bidet": "Bidet",
-      "publicOnly": "Public only"
+      "publicOnly": "Public only",
+      "emergency": "Nearest open"
     },
     "loadingBathrooms": "Loading bathrooms...",
     "zoomToView": "Zoom in to view restrooms",

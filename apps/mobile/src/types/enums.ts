@@ -76,6 +76,7 @@ export const AMENITY_KEYS = [
   "full_length_mirror",
   "touchless_sink",
   "touchless_flush",
+  "single_stall",
 ] as const;
 export type AmenityKey = (typeof AMENITY_KEYS)[number];
 export type AmenitiesMap = Partial<Record<AmenityKey, boolean>>;

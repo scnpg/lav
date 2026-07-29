@@ -19,6 +19,7 @@ import { PressableScale } from "../../src/components/PressableScale";
 import { getBathroomById, getBathroomsInBounds, type MapBounds } from "../../src/features/bathrooms/api";
 import { getBathroomReviewStats } from "../../src/features/bathrooms/ratingsApi";
 import { searchBathrooms } from "../../src/features/bathrooms/search";
+import { getBathroomsRecentlyClosed } from "../../src/features/bathrooms/statusApi";
 import { searchPlaces, type PlaceResult } from "../../src/features/places/search";
 import { useLiveLocation } from "../../src/hooks/useLiveLocation";
 import { useAuth } from "../../src/lib/auth";
@@ -50,6 +51,7 @@ export default function MapScreen() {
       { key: "wheelchair", label: t("map.filters.wheelchair") },
       { key: "bidet", label: t("map.filters.bidet") },
       { key: "public_only", label: t("map.filters.publicOnly") },
+      { key: "emergency", label: t("map.filters.emergency") },
     ],
     [t]
   );
@@ -89,6 +91,18 @@ export default function MapScreen() {
   // doesn't fight the map's own selection state.
   const [editingBathroom, setEditingBathroom] = useState<BathroomNearby | null>(null);
   const [ratingBathroom, setRatingBathroom] = useState<BathroomNearby | null>(null);
+  // "Nearest open" emergency filter: bathrooms with a recent (within
+  // get_bathrooms_recently_closed's default 4h window) report of
+  // is_open=false get excluded rather than trusted by default - see
+  // filteredByChips below. Refetched whenever the filter is active and the
+  // currently-loaded bathroom set changes (new viewport, or first turning
+  // the filter on).
+  const [recentlyClosedIds, setRecentlyClosedIds] = useState<Set<string>>(new Set());
+  // Sequences a one-shot "fly to my location, then auto-select the nearest
+  // match" the moment the emergency filter is turned on - consumed (cleared)
+  // once a match is selected, so panning away afterward while the filter
+  // stays active doesn't keep yanking the selection back.
+  const emergencyAutoSelectRef = useRef(false);
 
   const [flyToRequest, setFlyToRequest] = useState<{
     latitude: number;
@@ -296,12 +310,34 @@ export default function MapScreen() {
   function toggleFilter(key: string) {
     setActiveFilters((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+        if (key === "emergency") {
+          if (!userLocation) {
+            Alert.alert("Location needed", "Enable location access to find the nearest open restroom.");
+            next.delete(key);
+          } else {
+            emergencyAutoSelectRef.current = true;
+            setSelectedId(null);
+            setLocateMeToken(Date.now());
+          }
+        }
+      }
       return next;
     });
     setFitBoundsRequest(Date.now());
   }
+
+  // Bulk-refreshes which of the currently-loaded pins have a recent
+  // out-of-order/cleaning report, whenever the emergency filter is active.
+  useEffect(() => {
+    if (!activeFilters.has("emergency") || bathrooms.length === 0) return;
+    getBathroomsRecentlyClosed(bathrooms.map((b) => b.id))
+      .then(setRecentlyClosedIds)
+      .catch(() => setRecentlyClosedIds(new Set()));
+  }, [activeFilters, bathrooms]);
 
   function handleSearchTextChange(text: string) {
     setSearchText(text);
@@ -316,9 +352,13 @@ export default function MapScreen() {
         return false;
       }
       if (activeFilters.has("public_only") && bathroom.access_type !== "public") return false;
+      if (activeFilters.has("emergency")) {
+        if (!bathroom.amenities.wheelchair_accessible) return false;
+        if (recentlyClosedIds.has(bathroom.id)) return false;
+      }
       return true;
     });
-  }, [bathrooms, activeFilters]);
+  }, [bathrooms, activeFilters, recentlyClosedIds]);
 
   const trimmedQuery = searchText.trim();
   const isSearching = trimmedQuery.length > 0;
@@ -329,6 +369,21 @@ export default function MapScreen() {
   const visibleBathrooms = useMemo(() => {
     return isSearching ? searchBathrooms(filteredByChips, trimmedQuery) : filteredByChips;
   }, [filteredByChips, isSearching, trimmedQuery]);
+
+  // Consumes the one-shot auto-select queued by toggleFilter above, once the
+  // camera's move to the user's location has actually brought matching pins
+  // into `visibleBathrooms`. Ordered by distance (already computed once
+  // userLocation is known - see the effect above) then overall_score as a
+  // tiebreaker between two roughly-equidistant options.
+  useEffect(() => {
+    if (!emergencyAutoSelectRef.current || !activeFilters.has("emergency")) return;
+    if (visibleBathrooms.length === 0) return;
+    const nearest = [...visibleBathrooms].sort(
+      (a, b) => a.distance_meters - b.distance_meters || b.overall_score - a.overall_score
+    )[0];
+    emergencyAutoSelectRef.current = false;
+    if (nearest) selectBathroom(nearest.id);
+  }, [visibleBathrooms, activeFilters]);
 
   // Debounced Nominatim lookup for streets/districts/landmarks/etc - see
   // src/features/places/search.ts. Debounced (not fired per keystroke) both
