@@ -32,7 +32,7 @@ export function EightPointedStar({ size, color = colors.accent, strokeWidth = 1.
 interface FloralBloomProps {
   size: number;
   color?: string;
-  /** Petal count - only even numbers make sense (each lens contributes an opposite pair). Defaults to a 6-petal rosette, the classic Andalusian/Persian tile flower - deliberately distinct from EightPointedStar's sharp 8 points. */
+  /** Petal count - only even numbers make sense (each lens contributes an opposite pair). Defaults to an 8-petal rosette, matching EightPointedStar's 8-fold symmetry (the standard Andalusian/Moorish pairing). Previously defaulted to 6, which read as a hexagram (Star of David) rather than a flower once stroked - not the intended motif here. */
   petals?: number;
   strokeWidth?: number;
   /** Solid fill (small tile-icon use) vs outline-only (larger watermark/loader use, matches EightPointedStar's treatment). */
@@ -45,11 +45,15 @@ interface FloralBloomProps {
 // each "petal" is a lens shape (two corners rounded to 50%, the opposite two
 // left at 0 - the standard CSS/RN "leaf" trick), which is 2-fold symmetric,
 // so `petals / 2` of them rotated evenly around a shared center produce a
-// full flower silhouette - three lenses at 0/60/120deg for six petals, the
-// same "few overlapping rotated shapes sharing one center" idea as the star,
-// just curved instead of pointed. This is what makes the motif read as
-// "floral" arabesque rather than purely geometric star-and-polygon.
-export function FloralBloom({ size, color = colors.accent, petals = 6, strokeWidth = 1.5, filled = false, centerDot = false }: FloralBloomProps) {
+// full flower silhouette - four lenses at 0/45/90/135deg for eight petals,
+// the same "few overlapping rotated shapes sharing one center" idea as the
+// star, just curved instead of pointed. This is what makes the motif read as
+// "floral" arabesque rather than purely geometric star-and-polygon. (Three
+// lenses at 60deg increments - six petals - was the original default, but at
+// stroke-outline weight the sharp uncurved corners lined up into a hexagram
+// silhouette, reading as a Star of David rather than a flower. Four lenses
+// at 45deg increments avoids that 6-fold coincidence entirely.)
+export function FloralBloom({ size, color = colors.accent, petals = 8, strokeWidth = 1.5, filled = false, centerDot = false }: FloralBloomProps) {
   const lensCount = Math.max(2, Math.round(petals / 2));
   const lensSize = size * 0.62;
   const angleStep = 180 / lensCount;

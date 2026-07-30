@@ -36,7 +36,7 @@
 //     node scripts/ingest-named-venue-bathrooms.mjs \
 //       --bbox=south,west,north,east [--bbox=...] [--dry-run] [--limit=N]
 
-const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
+const OVERPASS_URL = process.env.OVERPASS_URL ?? "https://overpass-api.de/api/interpreter";
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "http://127.0.0.1:54321";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -82,12 +82,32 @@ const VENUE_QUERY_CLAUSES = [
   `nwr["amenity"~"^(restaurant|cafe|fast_food|bar|pub)$"]["toilets"="yes"]["name"]`,
   `nwr["tourism"]["toilets"="yes"]["name"]`,
   `nwr["leisure"~"^(park|garden)$"]["toilets"="yes"]["name"]`,
+  // Added for DC/Baltimore/College Park/Montgomery County/NYC density pass -
+  // libraries, malls, universities/colleges, and civic "facilities" that
+  // explicitly tag toilets=yes become bathrooms themselves, same as a
+  // restaurant/park above.
+  `nwr["amenity"="library"]["toilets"="yes"]["name"]`,
+  `nwr["shop"="mall"]["toilets"="yes"]["name"]`,
+  `nwr["amenity"~"^(university|college)$"]["toilets"="yes"]["name"]`,
+  `nwr["amenity"~"^(community_centre|townhall|courthouse)$"]["toilets"="yes"]["name"]`,
 ];
 // Purely a naming fallback pool for unnamed toilets nodes - not inserted as
 // bathrooms themselves unless nothing else nearby is found (bathrooms
 // shouldn't be named after an arbitrary building that merely happens to be
-// close, when a real venue/park name is available).
-const NAME_CONTEXT_CLAUSES = [`way["building"]["name"]`, `way["highway"]["name"]`];
+// close, when a real venue/park name is available). Broadened for the same
+// density pass to include libraries/malls/schools/facilities even when they
+// don't carry toilets=yes themselves - a nearby unnamed toilet node still
+// benefits from being named "at Rockville Memorial Library" rather than a
+// generic building or street.
+const NAME_CONTEXT_CLAUSES = [
+  `way["building"]["name"]`,
+  `way["highway"]["name"]`,
+  `nwr["amenity"="library"]["name"]`,
+  `nwr["shop"="mall"]["name"]`,
+  `nwr["amenity"~"^(university|college|school)$"]["name"]`,
+  `nwr["amenity"~"^(community_centre|townhall|courthouse)$"]["name"]`,
+  `nwr["leisure"="sports_centre"]["name"]`,
+];
 
 const OVERPASS_MAX_RETRIES = 4;
 
@@ -136,6 +156,10 @@ function isVenueWithToilets(tags) {
   if (/^(restaurant|cafe|fast_food|bar|pub)$/.test(tags.amenity ?? "")) return true;
   if (tags.tourism) return true;
   if (/^(park|garden)$/.test(tags.leisure ?? "")) return true;
+  if (tags.amenity === "library") return true;
+  if (tags.shop === "mall") return true;
+  if (/^(university|college)$/.test(tags.amenity ?? "")) return true;
+  if (/^(community_centre|townhall|courthouse)$/.test(tags.amenity ?? "")) return true;
   return false;
 }
 
@@ -280,7 +304,13 @@ async function main() {
   let processed = 0;
   let boxesFailed = 0;
 
-  for (const box of boxes) {
+  for (const [boxIndex, box] of boxes.entries()) {
+    // Deliberate pause between boxes, not just within-box retries - observed
+    // failure pattern is a handful of successful queries followed by a burst
+    // of "fetch failed"s (on both the primary instance and the kumi.systems
+    // mirror), which reads as a short-window rate limit rather than a hard
+    // ban. Spacing requests out is the cheap thing to try before giving up.
+    if (boxIndex > 0) await new Promise((resolve) => setTimeout(resolve, 25000));
     console.log(`Querying Overpass for [${box.south}, ${box.west}, ${box.north}, ${box.east}]...`);
     // A box that's still failing after fetchOverpass's own retries (e.g.
     // Overpass staying overloaded for minutes straight) skips to the NEXT
