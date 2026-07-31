@@ -1,0 +1,15 @@
+{
+  "name": "Lav",
+  "short_name": "Lav",
+  "description": "Find, rate, and log bathrooms nearby.",
+  "start_url": "/lav/",
+  "scope": "/lav/",
+  "id": "/lav/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FDFBF7",
+  "theme_color": "#FDFBF7",
+  "icons": [
+    { "src": "/lav/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
