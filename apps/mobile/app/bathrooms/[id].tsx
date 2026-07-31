@@ -10,6 +10,7 @@ import { LevelBadge } from "../../src/components/LevelBadge";
 import { Toast } from "../../src/components/Toast";
 import { BathroomActionPanel } from "../../src/components/bathroom/BathroomActionPanel";
 import { DetailsGrid } from "../../src/components/bathroom/DetailsGrid";
+import { EditBathroomNameModal } from "../../src/components/bathroom/EditBathroomNameModal";
 import { LiveStatusBadge } from "../../src/components/bathroom/LiveStatusBadge";
 import { MediaCarousel } from "../../src/components/bathroom/MediaCarousel";
 import { PhotoGallery } from "../../src/components/bathroom/PhotoGallery";
@@ -44,7 +45,7 @@ export default function BathroomDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   const [bathroom, setBathroom] = useState<BathroomPublic | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,6 +64,7 @@ export default function BathroomDetailScreen() {
   const [liveStatus, setLiveStatus] = useState<BathroomLiveStatus | null>(null);
   const [showQuickCheckModal, setShowQuickCheckModal] = useState(false);
   const [showQuickCheckToast, setShowQuickCheckToast] = useState(false);
+  const [showNameModal, setShowNameModal] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -161,6 +163,14 @@ export default function BathroomDetailScreen() {
     setShowRatingModal(true);
   }
 
+  function handleOpenNameModal() {
+    if (!user) {
+      router.push("/auth/sign-in");
+      return;
+    }
+    setShowNameModal(true);
+  }
+
   function handleOpenQuickCheck() {
     if (!user) {
       router.push("/auth/sign-in");
@@ -251,7 +261,18 @@ export default function BathroomDetailScreen() {
 
         <View style={styles.content}>
           <View style={styles.titleBlock}>
-            <Text style={styles.name}>{bathroom.name}</Text>
+            <View style={styles.nameRow}>
+              <Text style={styles.name}>{bathroom.name}</Text>
+              <Pressable
+                onPress={handleOpenNameModal}
+                hitSlop={8}
+                style={styles.nameEditButton}
+                accessibilityRole="button"
+                accessibilityLabel={isAdmin ? "Edit name" : "Suggest a name"}
+              >
+                <Ionicons name="pencil-outline" size={15} color={colors.textSecondary} />
+              </Pressable>
+            </View>
             {bathroom.venue_name ? <Text style={styles.venue}>{bathroom.venue_name}</Text> : null}
             {locationLine ? <Text style={styles.address}>{locationLine}</Text> : null}
 
@@ -379,6 +400,17 @@ export default function BathroomDetailScreen() {
         />
       ) : null}
 
+      {showNameModal && user ? (
+        <EditBathroomNameModal
+          bathroomId={bathroom.id}
+          currentName={bathroom.name}
+          userId={user.id}
+          isAdmin={isAdmin}
+          onClose={() => setShowNameModal(false)}
+          onRenamed={(newName) => setBathroom((prev) => (prev ? { ...prev, name: newName } : prev))}
+        />
+      ) : null}
+
       <Toast message="Report submitted - thank you!" visible={showReportToast} />
       <Toast message="Thanks for the check-in!" visible={showQuickCheckToast} />
     </View>
@@ -429,10 +461,18 @@ const styles = StyleSheet.create({
   titleBlock: {
     gap: spacing.xs,
   },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
   name: {
     fontSize: fontSize["2xl"],
     fontWeight: fontWeight.bold,
     color: colors.textPrimary,
+  },
+  nameEditButton: {
+    padding: 4,
   },
   venue: {
     fontSize: fontSize.base,
