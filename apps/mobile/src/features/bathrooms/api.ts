@@ -253,6 +253,7 @@ export interface BathroomFillMissingPatch {
   gender_category?: GenderCategory | null;
   toilet_type?: ToiletType | null;
   amenities?: AmenitiesMap;
+  open_hours?: OpenHours;
 }
 
 /**

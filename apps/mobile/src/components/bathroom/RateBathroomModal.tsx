@@ -14,7 +14,13 @@ import { useAuth } from "../../lib/auth";
 import { cardShadow, colors, fontSize, fontWeight, radii, spacing } from "../../theme";
 import type { BathroomPublic, BathroomReview } from "../../types/database";
 import { ACCESS_TYPES, COST_TYPES, GENDER_CATEGORIES, TOILET_TYPES, type AmenitiesMap, type AmenityKey } from "../../types/enums";
-import { ChipSelectField, FormStatusBanner, TextField, type FormStatus } from "./EditableFieldControls";
+import {
+  ChipSelectField,
+  FormStatusBanner,
+  OpenHoursField,
+  TextField,
+  type FormStatus,
+} from "./EditableFieldControls";
 import { PressableScale } from "../PressableScale";
 import { RatingSlider } from "./RatingSlider";
 
@@ -25,7 +31,7 @@ import { RatingSlider } from "./RatingSlider";
 // types in scope, so this modal doesn't need to accept only one of them.
 type RatableBathroom = Pick<
   BathroomPublic,
-  "id" | "name" | "access_type" | "cost_type" | "cost_amount" | "gender_category" | "toilet_type" | "amenities"
+  "id" | "name" | "access_type" | "cost_type" | "cost_amount" | "gender_category" | "toilet_type" | "amenities" | "open_hours"
 >;
 
 interface RateBathroomModalProps {
@@ -76,6 +82,7 @@ export function RateBathroomModal({ bathroom, onClose, onSaved }: RateBathroomMo
   const [genderCategory, setGenderCategory] = useState(bathroom.gender_category);
   const [toiletType, setToiletType] = useState(bathroom.toilet_type);
   const [amenities, setAmenities] = useState<AmenitiesMap>(bathroom.amenities);
+  const [openHours, setOpenHours] = useState(bathroom.open_hours ?? {});
 
   function toggleAmenity(key: AmenityKey) {
     setAmenities((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -162,6 +169,7 @@ export function RateBathroomModal({ bathroom, onClose, onSaved }: RateBathroomMo
           gender_category: genderCategory,
           toilet_type: toiletType,
           amenities,
+          open_hours: openHours,
         });
       } catch {
         // Best-effort enrichment - the rating itself already saved either way.
@@ -310,6 +318,7 @@ export function RateBathroomModal({ bathroom, onClose, onSaved }: RateBathroomMo
                 onChange={setGenderCategory}
               />
               <ChipSelectField label="Toilet type" options={TOILET_TYPE_OPTIONS} value={toiletType} onChange={setToiletType} />
+              <OpenHoursField value={openHours} onChange={setOpenHours} />
 
               <Text style={styles.fieldLabel}>Amenities</Text>
               <View style={styles.amenityGrid}>

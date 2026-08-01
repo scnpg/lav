@@ -10,7 +10,7 @@ import { ArabesqueDivider } from "../../src/components/ArabesqueDivider";
 import { ArabesqueLoader } from "../../src/components/ArabesqueLoader";
 import { PressableScale } from "../../src/components/PressableScale";
 import { Toast } from "../../src/components/Toast";
-import { ChipSelectField, TextField } from "../../src/components/bathroom/EditableFieldControls";
+import { ChipSelectField, OpenHoursField, TextField } from "../../src/components/bathroom/EditableFieldControls";
 import { PinPickerMap } from "../../src/components/map/PinPickerMap";
 import { SearchBar } from "../../src/components/map/SearchBar";
 import { SearchResultsDropdown } from "../../src/components/map/SearchResultsDropdown";
@@ -38,6 +38,7 @@ import {
   type AmenityKey,
   type CostType,
   type GenderCategory,
+  type OpenHours,
   type ToiletType,
 } from "../../src/types/enums";
 
@@ -77,6 +78,7 @@ export default function SubmitBathroomScreen() {
   const [toiletType, setToiletType] = useState<ToiletType | null>(null);
   const [description, setDescription] = useState("");
   const [accessNotes, setAccessNotes] = useState("");
+  const [openHours, setOpenHours] = useState<OpenHours>({});
   const [photoUris, setPhotoUris] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
@@ -174,6 +176,7 @@ export default function SubmitBathroomScreen() {
         setToiletType(bathroom.toilet_type);
         setDescription(bathroom.description ?? "");
         setAccessNotes(bathroom.access_notes ?? "");
+        setOpenHours(bathroom.open_hours ?? {});
       }
       setLoadingExisting(false);
     });
@@ -246,6 +249,8 @@ export default function SubmitBathroomScreen() {
           toiletType: toiletType !== (existingBathroom?.toilet_type ?? null) ? toiletType : undefined,
           description: description.trim() && description.trim() !== (existingBathroom?.description ?? "") ? description.trim() : undefined,
           accessNotes: accessNotes.trim() && accessNotes.trim() !== (existingBathroom?.access_notes ?? "") ? accessNotes.trim() : undefined,
+          openHours:
+            JSON.stringify(openHours) !== JSON.stringify(existingBathroom?.open_hours ?? {}) ? openHours : undefined,
           photoUrls,
         });
       } else {
@@ -261,6 +266,7 @@ export default function SubmitBathroomScreen() {
           toiletType,
           description: description.trim() || null,
           accessNotes: accessNotes.trim() || null,
+          openHours,
           photoUrls,
         });
       }
@@ -393,6 +399,7 @@ export default function SubmitBathroomScreen() {
           placeholder="e.g. Ask bellhop for the key"
           multiline
         />
+        <OpenHoursField value={openHours} onChange={setOpenHours} />
 
         <Text style={styles.fieldLabel}>Photos</Text>
         <View style={styles.photoGrid}>

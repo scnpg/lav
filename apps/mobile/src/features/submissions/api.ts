@@ -1,6 +1,6 @@
 import { supabase } from "../../lib/supabase";
 import type { BathroomSubmission } from "../../types/database";
-import type { AccessType, AmenitiesMap, CostType, GenderCategory, ToiletType } from "../../types/enums";
+import type { AccessType, AmenitiesMap, CostType, GenderCategory, OpenHours, ToiletType } from "../../types/enums";
 
 // The moderation queue (0023_social_and_submissions.sql) - deliberately
 // separate from submitBathroom()/updateBathroomDetails() in
@@ -28,6 +28,7 @@ export interface SubmissionDetails {
   // consensus pipeline.
   description?: string | null;
   access_notes?: string | null;
+  open_hours?: OpenHours;
   [key: string]: unknown;
 }
 
@@ -44,6 +45,7 @@ export interface NewPinSubmissionInput {
   photoUrls?: string[];
   description?: string | null;
   accessNotes?: string | null;
+  openHours?: OpenHours;
 }
 
 export async function submitNewBathroom(input: NewPinSubmissionInput): Promise<BathroomSubmission> {
@@ -56,6 +58,7 @@ export async function submitNewBathroom(input: NewPinSubmissionInput): Promise<B
     photo_urls: input.photoUrls ?? [],
     description: input.description ?? null,
     access_notes: input.accessNotes ?? null,
+    open_hours: input.openHours,
   };
   const { data, error } = await supabase
     .from("bathroom_submissions")
@@ -85,6 +88,7 @@ export interface BathroomAmendmentInput {
   photoUrls?: string[];
   description?: string | null;
   accessNotes?: string | null;
+  openHours?: OpenHours;
 }
 
 export async function submitBathroomAmendment(input: BathroomAmendmentInput): Promise<BathroomSubmission> {
@@ -97,6 +101,7 @@ export async function submitBathroomAmendment(input: BathroomAmendmentInput): Pr
     photo_urls: input.photoUrls ?? [],
     description: input.description,
     access_notes: input.accessNotes,
+    open_hours: input.openHours,
   };
   const { data, error } = await supabase
     .from("bathroom_submissions")

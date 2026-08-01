@@ -12,7 +12,14 @@ import { updateBathroomDetails, type BathroomFillMissingPatch } from "../../feat
 import { cardShadow, colors, fontSize, fontWeight, radii, spacing } from "../../theme";
 import type { BathroomNearby, BathroomPublic } from "../../types/database";
 import { ACCESS_TYPES, COST_TYPES, GENDER_CATEGORIES, TOILET_TYPES } from "../../types/enums";
-import { ChipSelectField, FormStatusBanner, TextField, ToggleRow, type FormStatus } from "./EditableFieldControls";
+import {
+  ChipSelectField,
+  FormStatusBanner,
+  OpenHoursField,
+  TextField,
+  ToggleRow,
+  type FormStatus,
+} from "./EditableFieldControls";
 
 interface EditBathroomModalProps {
   bathroom: BathroomNearby;
@@ -39,6 +46,7 @@ export function EditBathroomModal({ bathroom, onClose, onSaved }: EditBathroomMo
   const [toiletType, setToiletType] = useState(bathroom.toilet_type);
   const [wheelchairAccessible, setWheelchairAccessible] = useState(!!bathroom.amenities.wheelchair_accessible);
   const [changingStation, setChangingStation] = useState(!!bathroom.amenities.baby_changing);
+  const [openHours, setOpenHours] = useState(bathroom.open_hours ?? {});
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState<FormStatus | null>(null);
 
@@ -63,6 +71,7 @@ export function EditBathroomModal({ bathroom, onClose, onSaved }: EditBathroomMo
           wheelchair_accessible: wheelchairAccessible,
           baby_changing: changingStation,
         },
+        open_hours: openHours,
       };
       const updated = await updateBathroomDetails(bathroom.id, patch);
       onSaved(updated);
@@ -113,6 +122,7 @@ export function EditBathroomModal({ bathroom, onClose, onSaved }: EditBathroomMo
           <ChipSelectField label="Toilet type" options={TOILET_TYPE_OPTIONS} value={toiletType} onChange={setToiletType} />
           <ToggleRow label="Wheelchair accessible" value={wheelchairAccessible} onChange={setWheelchairAccessible} />
           <ToggleRow label="Changing station" value={changingStation} onChange={setChangingStation} />
+          <OpenHoursField value={openHours} onChange={setOpenHours} />
           <TextField
             label="Description"
             value={description}

@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { colors, fontSize, fontWeight, radii, spacing } from "../../theme";
+import type { OpenHours } from "../../types/enums";
 
 // Shared form primitives for the Edit Info and Add New Bathroom modals - the
 // only two places that need labeled text inputs / single-select chip
@@ -122,6 +123,57 @@ export function ToggleRow({ label, value, onChange }: ToggleRowProps) {
   );
 }
 
+interface OpenHoursFieldProps {
+  value: OpenHours;
+  onChange: (value: OpenHours) => void;
+}
+
+// Shared by EditBathroomModal, RateBathroomModal, and the submit.tsx wizard -
+// the three places someone fills in bathroom facts. Open/close are plain
+// free-text (OpenHours doesn't constrain the format) rather than a time
+// picker, matching every other field in these forms (all free-text or
+// enum-chip, no native picker components in use anywhere here).
+export function OpenHoursField({ value, onChange }: OpenHoursFieldProps) {
+  const is24Hours = !!value.is_24_hours;
+  return (
+    <View style={styles.fieldBlock}>
+      <Text style={styles.fieldLabel}>Hours</Text>
+      <ToggleRow
+        label="Open 24 hours"
+        value={is24Hours}
+        onChange={(next) =>
+          onChange(next ? { ...value, is_24_hours: true, open: undefined, close: undefined } : { ...value, is_24_hours: false })
+        }
+      />
+      {!is24Hours ? (
+        <View style={styles.hoursRow}>
+          <TextInput
+            value={value.open ?? ""}
+            onChangeText={(text) => onChange({ ...value, open: text || undefined })}
+            placeholder="Opens, e.g. 9:00 AM"
+            placeholderTextColor={colors.textMuted}
+            style={[styles.input, styles.hoursRowItem]}
+          />
+          <TextInput
+            value={value.close ?? ""}
+            onChangeText={(text) => onChange({ ...value, close: text || undefined })}
+            placeholder="Closes, e.g. 6:00 PM"
+            placeholderTextColor={colors.textMuted}
+            style={[styles.input, styles.hoursRowItem]}
+          />
+        </View>
+      ) : null}
+      <TextInput
+        value={value.notes ?? ""}
+        onChangeText={(text) => onChange({ ...value, notes: text || undefined })}
+        placeholder="Notes, e.g. closed on holidays"
+        placeholderTextColor={colors.textMuted}
+        style={styles.input}
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   statusBanner: {
     flexDirection: "row",
@@ -167,6 +219,13 @@ const styles = StyleSheet.create({
     minHeight: 80,
     paddingVertical: spacing.sm,
     textAlignVertical: "top",
+  },
+  hoursRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  hoursRowItem: {
+    flex: 1,
   },
   chipRow: {
     gap: spacing.sm,
