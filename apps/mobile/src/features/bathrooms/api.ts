@@ -78,11 +78,21 @@ export async function getBathroomsInBounds(bounds: MapBounds): Promise<BathroomP
       ? query.gte("longitude", bounds.west).lte("longitude", bounds.east)
       : query.or(`longitude.gte.${bounds.west},longitude.lte.${bounds.east}`);
 
-  // No ORDER BY on purpose: sorting by anything other than the indexed
-  // latitude/longitude columns would force Postgres to scan and sort every
-  // matching row before applying the limit, undoing the point of capping
-  // it. Whatever 300 rows come back fastest is good enough for a map pin.
-  const { data, error } = await query.limit(BOUNDS_QUERY_LIMIT);
+  // A stable ORDER BY is required here, not optional - without one, Postgres
+  // is free to return a *different* arbitrary 300-row subset of the matching
+  // bathrooms on every identical call (query plan/worker/cache-state
+  // dependent, confirmed to actually vary run-to-run against this table).
+  // Since a pan re-triggers this fetch, an unordered query looked exactly
+  // like "pins randomly reshuffling/moving" - the map was reclustering a
+  // different random sample of points every time, not just repositioning
+  // markers. Ordering by latitude/longitude keeps the original intent (both
+  // already indexed, so this is still a sorted index range scan rather than
+  // a full scan-and-sort of every matching row) while making the same
+  // bounding box always return the same rows in the same order.
+  const { data, error } = await query
+    .order("latitude", { ascending: true })
+    .order("longitude", { ascending: true })
+    .limit(BOUNDS_QUERY_LIMIT);
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as BathroomPublic[];
 }

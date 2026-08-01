@@ -477,6 +477,8 @@ export function MapView({
           });
           marker = new Marker({ element: el }).setLngLat([longitude, latitude]).addTo(map);
           markersRef.current.set(key, marker);
+        } else {
+          marker.setLngLat([longitude, latitude]);
         }
         const el = marker.getElement() as HTMLDivElement;
         updateScorePillElement(el, feature.properties.avgScore);
