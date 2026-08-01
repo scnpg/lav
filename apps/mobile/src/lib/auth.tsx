@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // simultaneously be correct for local dev, native, and the deployed
       // web build. See src/lib/linking.ts for why this can't just be
       // Linking.createURL() on its own.
-      options: { emailRedirectTo: createAuthRedirectUrl("/auth/sign-in") },
+      options: { emailRedirectTo: createAuthRedirectUrl("/profile") },
     });
     if (error) {
       // Whether a repeat signUp() against an already-confirmed email comes
