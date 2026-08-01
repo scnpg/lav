@@ -5,6 +5,7 @@ import { FlatList, Pressable, RefreshControl, ScrollView, Text, View } from "rea
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ArabesqueLoader } from "../../src/components/ArabesqueLoader";
+import { ArabesquePattern } from "../../src/components/ArabesquePattern";
 import { LavLogo } from "../../src/components/LavLogo";
 import { ACCESS_TYPE_LABELS, COST_TYPE_LABELS } from "../../src/constants/enumLabels";
 import { getSavedBathrooms, toggleBookmark } from "../../src/features/bathrooms/api";
@@ -29,6 +30,13 @@ export default function ListsScreen() {
     container: {
       flex: 1,
       backgroundColor: c.background,
+    },
+    patternLayer: {
+      position: "absolute" as const,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
     },
     centerContent: {
       flex: 1,
@@ -212,6 +220,9 @@ export default function ListsScreen() {
   if (!user) {
     return (
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+        <View style={styles.patternLayer} pointerEvents="none">
+          <ArabesquePattern opacity={0.05} />
+        </View>
         <View style={styles.centerContent}>
           <Ionicons name="albums-outline" size={28} color={colors.textMuted} />
           <Text style={styles.emptyText}>Sign in to see your lists.</Text>
@@ -226,6 +237,9 @@ export default function ListsScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+        <View style={styles.patternLayer} pointerEvents="none">
+          <ArabesquePattern opacity={0.05} />
+        </View>
         <View style={styles.centerContent}>
           <ArabesqueLoader size={32} color={colors.accentStrong} framed />
         </View>
@@ -236,6 +250,9 @@ export default function ListsScreen() {
   if (error) {
     return (
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+        <View style={styles.patternLayer} pointerEvents="none">
+          <ArabesquePattern opacity={0.05} />
+        </View>
         <View style={styles.centerContent}>
           <Text style={styles.errorText}>{error}</Text>
           <Pressable style={styles.signInButton} onPress={() => load()}>
@@ -249,6 +266,9 @@ export default function ListsScreen() {
   if (viewingSaved) {
     return (
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+        <View style={styles.patternLayer} pointerEvents="none">
+          <ArabesquePattern opacity={0.05} />
+        </View>
         <Pressable style={styles.backRow} onPress={() => setViewingSaved(false)} hitSlop={8}>
           <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
           <Text style={styles.title}>Saved</Text>
@@ -322,6 +342,9 @@ export default function ListsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <View style={styles.patternLayer} pointerEvents="none">
+        <ArabesquePattern opacity={0.05} />
+      </View>
       <View style={styles.header}>
         <LavLogo size={22} />
       </View>

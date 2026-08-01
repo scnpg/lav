@@ -7,6 +7,7 @@ import { Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ArabesqueLoader } from "../../src/components/ArabesqueLoader";
+import { ArabesquePattern } from "../../src/components/ArabesquePattern";
 import { LevelBadge } from "../../src/components/LevelBadge";
 import { Toast } from "../../src/components/Toast";
 import { BathroomActionPanel } from "../../src/components/bathroom/BathroomActionPanel";
@@ -53,6 +54,13 @@ export default function BathroomDetailScreen() {
     container: {
       flex: 1,
       backgroundColor: c.background,
+    },
+    patternLayer: {
+      position: "absolute" as const,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
     },
     centerContainer: {
       flex: 1,
@@ -432,6 +440,9 @@ export default function BathroomDetailScreen() {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
+        <View style={styles.patternLayer} pointerEvents="none">
+          <ArabesquePattern opacity={0.05} />
+        </View>
         <ArabesqueLoader size={32} color={colors.accentStrong} framed />
       </View>
     );
@@ -440,6 +451,9 @@ export default function BathroomDetailScreen() {
   if (loadError || !bathroom) {
     return (
       <View style={styles.notFoundContainer}>
+        <View style={styles.patternLayer} pointerEvents="none">
+          <ArabesquePattern opacity={0.05} />
+        </View>
         <Text style={styles.notFoundTitle}>Couldn't load this bathroom</Text>
         <Text style={styles.notFoundText}>{loadError ?? "It may have been removed."}</Text>
         <Pressable style={styles.backLink} onPress={() => router.back()}>
@@ -455,6 +469,9 @@ export default function BathroomDetailScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.patternLayer} pointerEvents="none">
+        <ArabesquePattern opacity={0.05} />
+      </View>
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + spacing["2xl"] }]}
         showsVerticalScrollIndicator={false}

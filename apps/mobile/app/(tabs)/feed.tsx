@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ArabesqueLoader } from "../../src/components/ArabesqueLoader";
+import { ArabesquePattern } from "../../src/components/ArabesquePattern";
 import { FlowerMark } from "../../src/components/FlowerMark";
 import { LavLogo } from "../../src/components/LavLogo";
 import { LevelBadge } from "../../src/components/LevelBadge";
@@ -59,6 +60,13 @@ export default function FeedScreen() {
     container: {
       flex: 1,
       backgroundColor: c.background,
+    },
+    patternLayer: {
+      position: "absolute" as const,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
     },
     header: {
       paddingHorizontal: spacing.lg,
@@ -262,6 +270,10 @@ export default function FeedScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <View style={styles.patternLayer} pointerEvents="none">
+        <ArabesquePattern opacity={0.05} />
+      </View>
+
       <View style={styles.header}>
         <LavLogo size={22} />
       </View>

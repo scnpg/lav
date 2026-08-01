@@ -8,6 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AnimatedTileBackdrop } from "../../src/components/AnimatedTileBackdrop";
 import { ArabesqueLoader } from "../../src/components/ArabesqueLoader";
 import { FlowerMark } from "../../src/components/FlowerMark";
+import { TileFrame } from "../../src/components/ArabesquePattern";
 import { LavLogo } from "../../src/components/LavLogo";
 import { LevelBadge } from "../../src/components/LevelBadge";
 import { SearchBar } from "../../src/components/map/SearchBar";
@@ -289,7 +290,9 @@ export default function SearchScreen() {
             <AnimatedTileBackdrop opacity={0.05} />
           </View>
           <View style={styles.emptyState}>
-            <FlowerMark size={48} color={colors.border} sw={0.75} />
+            <TileFrame size={76}>
+              <FlowerMark size={48} color={colors.border} sw={0.75} />
+            </TileFrame>
             <Text style={styles.emptyText}>Search for a bathroom, another user, or a street or landmark.</Text>
           </View>
         </View>

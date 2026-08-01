@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ArabesqueLoader } from "../../src/components/ArabesqueLoader";
+import { ArabesquePattern, TileFrame } from "../../src/components/ArabesquePattern";
 import { FlowerMark } from "../../src/components/FlowerMark";
 import { LavLogo } from "../../src/components/LavLogo";
 import { LevelBadge } from "../../src/components/LevelBadge";
@@ -81,6 +82,13 @@ export default function ProfileScreen() {
     container: {
       flex: 1,
       backgroundColor: c.background,
+    },
+    patternLayer: {
+      position: "absolute" as const,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
     },
     centerContent: {
       flex: 1,
@@ -699,6 +707,9 @@ export default function ProfileScreen() {
   if (loading || !user) {
     return (
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+        <View style={styles.patternLayer} pointerEvents="none">
+          <ArabesquePattern opacity={0.05} />
+        </View>
         <View style={styles.centerContent}>
           <ArabesqueLoader size={40} color={colors.accentStrong} />
         </View>
@@ -709,6 +720,9 @@ export default function ProfileScreen() {
   if (!profile) {
     return (
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+        <View style={styles.patternLayer} pointerEvents="none">
+          <ArabesquePattern opacity={0.05} />
+        </View>
         <View style={styles.centerContent}>
           <Text style={styles.errorText}>Couldn't load your profile.</Text>
         </View>
@@ -722,6 +736,9 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <View style={styles.patternLayer} pointerEvents="none">
+        <ArabesquePattern opacity={0.05} />
+      </View>
       <View style={styles.screenHeader}>
         <LavLogo size={22} />
         <View style={styles.headerActions}>
@@ -971,7 +988,9 @@ export default function ProfileScreen() {
             ) : activeTab === "been_there" ? (
               loggedBathrooms.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <FlowerMark size={40} color={colors.border} sw={0.75} />
+                  <TileFrame size={64}>
+                    <FlowerMark size={40} color={colors.border} sw={0.75} />
+                  </TileFrame>
                   <Text style={styles.emptyListText}>
                     Nothing logged yet - use "Rate & log" on a bathroom to start your leaderboard.
                   </Text>
@@ -1006,7 +1025,9 @@ export default function ProfileScreen() {
             ) : activeTab === "want_to_go" ? (
               savedBathrooms.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <FlowerMark size={40} color={colors.border} sw={0.75} />
+                  <TileFrame size={64}>
+                    <FlowerMark size={40} color={colors.border} sw={0.75} />
+                  </TileFrame>
                   <Text style={styles.emptyListText}>
                     Nothing saved yet - tap the heart on a bathroom's card on the map to bookmark it.
                   </Text>
