@@ -31,7 +31,10 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # pnpm is pinned via `packageManager` in package.json (11.9.0),
+          # which requires Node >= 22.13 - it crashes on Node 20 with
+          # ERR_UNKNOWN_BUILTIN_MODULE (node:sqlite doesn't exist there).
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies
