@@ -78,5 +78,11 @@
     "en": "English",
     "zh-Hant": "繁體中文",
     "es": "Español"
+  },
+  "theme": {
+    "title": "外觀",
+    "paper": "紙白",
+    "nocturne": "夜色",
+    "system": "系統"
   }
 }

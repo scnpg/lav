@@ -2,13 +2,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Animated, Easing, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ArabesqueLoader } from "../../src/components/ArabesqueLoader";
-import { FloralBloom } from "../../src/components/ArabesquePattern";
+import { FlowerMark } from "../../src/components/FlowerMark";
 import { LavLogo } from "../../src/components/LavLogo";
 import { LevelBadge } from "../../src/components/LevelBadge";
 import { LevelProgressBar } from "../../src/components/LevelProgressBar";
@@ -21,13 +21,27 @@ import { getListItemCounts, getListsForUser } from "../../src/features/lists/api
 import { getUnreadNotificationCount } from "../../src/features/social/api";
 import { SUPPORTED_LANGUAGES, setLanguage, type SupportedLanguage } from "../../src/i18n";
 import { useAuth } from "../../src/lib/auth";
+import { pinFill } from "../../src/lib/pinColor";
 import { uploadAvatar } from "../../src/lib/profiles";
-import { cardShadow, colors, fontSize, fontWeight, radii, spacing } from "../../src/theme";
+import { cardShadow, fontSize, fontWeight, radii, spacing, useTheme, useThemedStyles, type ThemeMode } from "../../src/theme";
 import type { BathroomList, BathroomPublic } from "../../src/types/database";
 
 const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 
+const THEME_MODES: ThemeMode[] = ["paper", "nocturne", "system"];
+const THEME_ICONS: Record<ThemeMode, keyof typeof Ionicons.glyphMap> = {
+  paper: "sunny-outline",
+  nocturne: "moon-outline",
+  system: "desktop-outline",
+};
+
 type LeaderboardTab = "been_there" | "want_to_go" | "collections";
+
+const LEADERBOARD_TABS: { key: LeaderboardTab; labelKey: string }[] = [
+  { key: "been_there", labelKey: "profile.tabs.beenThere" },
+  { key: "want_to_go", labelKey: "profile.tabs.wantToGo" },
+  { key: "collections", labelKey: "profile.tabs.collections" },
+];
 
 // A streak that's still "alive" shouldn't read as 0 just because today's
 // log hasn't happened yet - if there's no entry for today, count backward
@@ -60,7 +74,454 @@ function computeLoggingStreak(reviews: { created_at: string }[]): number {
 export default function ProfileScreen() {
   const { t, i18n } = useTranslation();
   const { user, profile, loading, updateDisplayName, updateUsername, refreshProfile, signOut } = useAuth();
+  const { colors, scheme, mode, setMode } = useTheme();
   const router = useRouter();
+
+  const styles = useThemedStyles((c) => ({
+    container: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    centerContent: {
+      flex: 1,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    screenHeader: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      justifyContent: "space-between" as const,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.md,
+    },
+    headerActions: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.sm,
+    },
+    headerIconButton: {
+      width: 36,
+      height: 36,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    headerBadge: {
+      position: "absolute" as const,
+      top: 2,
+      right: 2,
+      minWidth: 15,
+      height: 15,
+      paddingHorizontal: 3,
+      borderRadius: radii.full,
+      backgroundColor: c.danger,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    headerBadgeText: {
+      fontSize: 9,
+      fontWeight: fontWeight.bold,
+      color: c.textOnAccent,
+    },
+    scrollContent: {
+      alignItems: "center" as const,
+      paddingVertical: spacing.lg,
+    },
+    contentInner: {
+      width: "100%" as const,
+      maxWidth: 480,
+      paddingHorizontal: spacing.lg,
+    },
+    card: {
+      backgroundColor: c.surface,
+      borderRadius: radii.xl,
+      padding: spacing.lg,
+      gap: spacing.md,
+    },
+    headerRow: {
+      flexDirection: "row" as const,
+      alignItems: "flex-start" as const,
+      justifyContent: "space-between" as const,
+      gap: spacing.md,
+    },
+    identityRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.md,
+      flex: 1,
+      minWidth: 0,
+    },
+    avatar: {
+      width: 56,
+      height: 56,
+      borderRadius: radii.full,
+      backgroundColor: c.accentMuted,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    avatarImage: {
+      width: 56,
+      height: 56,
+      borderRadius: radii.full,
+    },
+    avatarOverlay: {
+      position: "absolute" as const,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      borderRadius: radii.full,
+      backgroundColor: c.overlay,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    avatarBadge: {
+      position: "absolute" as const,
+      bottom: -2,
+      right: -2,
+      width: 20,
+      height: 20,
+      borderRadius: radii.full,
+      backgroundColor: c.accentStrong,
+      borderWidth: 2,
+      borderColor: c.surface,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    avatarText: {
+      fontSize: fontSize.xl,
+      fontWeight: fontWeight.bold,
+      color: c.textPrimary,
+    },
+    textBlock: {
+      gap: 4,
+      flex: 1,
+      minWidth: 0,
+    },
+    name: {
+      fontSize: fontSize.lg,
+      fontWeight: fontWeight.bold,
+      color: c.textPrimary,
+    },
+    nameInput: {
+      fontSize: fontSize.lg,
+      fontWeight: fontWeight.bold,
+      color: c.textPrimary,
+      borderBottomWidth: 1,
+      borderBottomColor: c.borderStrong,
+      paddingVertical: 2,
+    },
+    username: {
+      fontSize: fontSize.sm,
+      color: c.textSecondary,
+    },
+    usernameInput: {
+      fontSize: fontSize.sm,
+      color: c.textSecondary,
+      borderBottomWidth: 1,
+      borderBottomColor: c.borderStrong,
+      paddingVertical: 2,
+      marginTop: 2,
+    },
+    pointsRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 6,
+    },
+    pointsText: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      color: c.textPrimary,
+    },
+    signOutButton: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 4,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+    },
+    signOutText: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.medium,
+      color: c.danger,
+    },
+    errorText: {
+      fontSize: fontSize.sm,
+      color: c.danger,
+    },
+    editProfileButton: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 4,
+      alignSelf: "flex-start" as const,
+    },
+    editProfileText: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.medium,
+      color: c.accentStrong,
+    },
+    languageRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      justifyContent: "space-between" as const,
+      marginTop: spacing.md,
+      paddingTop: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: c.border,
+    },
+    languageLabel: {
+      fontSize: fontSize.sm,
+      color: c.textSecondary,
+    },
+    languagePicker: {
+      flexDirection: "row" as const,
+      backgroundColor: c.surfaceMuted,
+      borderRadius: radii.full,
+      padding: 2,
+    },
+    languageOption: {
+      paddingHorizontal: spacing.sm,
+      height: 28,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      borderRadius: radii.full,
+    },
+    languageOptionActive: {
+      backgroundColor: c.surface,
+      ...cardShadow("sm", scheme),
+    },
+    languageOptionText: {
+      fontSize: fontSize.xs,
+      fontWeight: fontWeight.medium,
+      color: c.textSecondary,
+    },
+    languageOptionTextActive: {
+      color: c.textPrimary,
+      fontWeight: fontWeight.semibold,
+    },
+    themeRow: {
+      marginTop: spacing.lg,
+    },
+    themeLabel: {
+      fontSize: fontSize.xs,
+      color: c.textSecondary,
+      letterSpacing: 1.2,
+      textTransform: "uppercase" as const,
+      marginBottom: spacing.sm,
+    },
+    themePicker: {
+      flexDirection: "row" as const,
+      gap: spacing.sm,
+    },
+    themeOption: {
+      flex: 1,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.xs,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      gap: 5,
+      borderRadius: radii.md,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    themeOptionActive: {
+      borderColor: c.accent,
+      backgroundColor: c.accentMuted,
+    },
+    themeOptionText: {
+      fontSize: fontSize.xs,
+      fontWeight: fontWeight.medium,
+      color: c.textSecondary,
+    },
+    themeOptionTextActive: {
+      color: c.accent,
+      fontWeight: fontWeight.semibold,
+    },
+    statsRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      backgroundColor: c.surfaceMuted,
+      borderRadius: radii.lg,
+      paddingVertical: spacing.sm,
+    },
+    statBlock: {
+      flex: 1,
+      alignItems: "center" as const,
+      gap: 2,
+    },
+    statDivider: {
+      width: 1,
+      alignSelf: "stretch" as const,
+      backgroundColor: c.border,
+    },
+    statValueRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 2,
+    },
+    statValue: {
+      fontSize: fontSize.lg,
+      fontWeight: fontWeight.bold,
+      color: c.textPrimary,
+    },
+    statLabel: {
+      fontSize: fontSize.xs,
+      color: c.textSecondary,
+    },
+    leaderboardSection: {
+      marginTop: spacing.xl,
+      gap: spacing.md,
+    },
+    tabRow: {
+      position: "relative" as const,
+      flexDirection: "row" as const,
+    },
+    tabButton: {
+      flex: 1,
+      height: 36,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    tabButtonText: {
+      fontSize: 10.5,
+      fontWeight: fontWeight.medium,
+      color: c.textSecondary,
+      letterSpacing: 1,
+      textTransform: "uppercase" as const,
+    },
+    tabButtonTextActive: {
+      color: c.accent,
+      fontWeight: fontWeight.semibold,
+    },
+    tabUnderline: {
+      position: "absolute" as const,
+      bottom: 0,
+      height: 2,
+      backgroundColor: c.accent,
+      borderRadius: 1,
+    },
+    tabRowDivider: {
+      height: 1,
+      backgroundColor: c.border,
+    },
+    listLoading: {
+      alignItems: "center" as const,
+      gap: spacing.sm,
+      paddingVertical: spacing.xl,
+    },
+    retryText: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      color: c.accentStrong,
+    },
+    emptyState: {
+      alignItems: "center" as const,
+      gap: spacing.sm,
+      paddingTop: spacing.md,
+    },
+    emptyListText: {
+      fontSize: fontSize.sm,
+      color: c.textSecondary,
+      textAlign: "center" as const,
+      paddingHorizontal: spacing.md,
+      paddingBottom: spacing.xl,
+    },
+    listGap: {
+      gap: spacing.sm,
+    },
+    leaderboardRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.sm,
+      backgroundColor: c.surface,
+      borderRadius: radii.lg,
+      padding: spacing.md,
+    },
+    rankText: {
+      width: 20,
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      color: c.textMuted,
+      textAlign: "center" as const,
+    },
+    collectionIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: radii.md,
+      backgroundColor: c.accentMuted,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    rowMain: {
+      flex: 1,
+      minWidth: 0,
+      gap: 2,
+    },
+    rowName: {
+      fontSize: fontSize.base,
+      fontWeight: fontWeight.semibold,
+      color: c.textPrimary,
+    },
+    rowVenue: {
+      fontSize: fontSize.sm,
+      color: c.textSecondary,
+    },
+    rowMetaRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.sm,
+    },
+    rowMetaText: {
+      fontSize: fontSize.xs,
+      color: c.textSecondary,
+    },
+    ratingBadge: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 4,
+    },
+    ratingBadgeText: {
+      fontSize: fontSize.xs,
+      fontWeight: fontWeight.semibold,
+    },
+    removeButton: {
+      padding: spacing.xs,
+    },
+    editActionsRow: {
+      flexDirection: "row" as const,
+      gap: spacing.sm,
+    },
+    cancelButton: {
+      paddingHorizontal: spacing.md,
+      height: 40,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    cancelButtonText: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.medium,
+      color: c.textSecondary,
+    },
+    saveButton: {
+      flex: 1,
+      backgroundColor: c.accent,
+      height: 40,
+      borderRadius: radii.lg,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    saveButtonDisabled: {
+      opacity: 0.5,
+    },
+    saveButtonText: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      color: c.textOnAccent,
+    },
+  }));
+
   const [isEditing, setIsEditing] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [usernameInput, setUsernameInput] = useState("");
@@ -69,6 +530,20 @@ export default function ProfileScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<LeaderboardTab>("been_there");
+  const leaderboardTabIndex = LEADERBOARD_TABS.findIndex((t) => t.key === activeTab);
+  const leaderboardUnderlineIndex = useRef(new Animated.Value(leaderboardTabIndex)).current;
+  useEffect(() => {
+    Animated.timing(leaderboardUnderlineIndex, {
+      toValue: leaderboardTabIndex,
+      duration: 150,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: false, // animates `left` as a percentage string, which the native driver can't handle
+    }).start();
+  }, [leaderboardTabIndex, leaderboardUnderlineIndex]);
+  const leaderboardUnderlineLeft = leaderboardUnderlineIndex.interpolate({
+    inputRange: LEADERBOARD_TABS.map((_, i) => i),
+    outputRange: LEADERBOARD_TABS.map((_, i) => `${(i * 100) / LEADERBOARD_TABS.length}%`),
+  });
   const [loggedBathrooms, setLoggedBathrooms] = useState<LoggedBathroom[]>([]);
   const [savedBathrooms, setSavedBathrooms] = useState<BathroomPublic[]>([]);
   const [collections, setCollections] = useState<BathroomList[]>([]);
@@ -282,7 +757,7 @@ export default function ProfileScreen() {
       </View>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.contentInner}>
-          <View style={[styles.card, cardShadow("sm")]}>
+          <View style={[styles.card, cardShadow("sm", scheme)]}>
             <View style={styles.headerRow}>
               <View style={styles.identityRow}>
                 <Pressable
@@ -299,7 +774,7 @@ export default function ProfileScreen() {
                   )}
                   {uploadingPhoto ? (
                     <View style={styles.avatarOverlay}>
-                      <ActivityIndicator color={colors.textOnOverlay} size="small" />
+                      <ArabesqueLoader size={18} color={colors.textOnOverlay} />
                     </View>
                   ) : (
                     <View style={styles.avatarBadge}>
@@ -414,7 +889,7 @@ export default function ProfileScreen() {
                   disabled={!nameInput.trim() || saving}
                 >
                   {saving ? (
-                    <ActivityIndicator color={colors.textOnAccent} size="small" />
+                    <ArabesqueLoader size={20} color={colors.textOnAccent} />
                   ) : (
                     <Text style={styles.saveButtonText}>{t("common.save")}</Text>
                   )}
@@ -443,35 +918,44 @@ export default function ProfileScreen() {
                 ))}
               </View>
             </View>
+
+            <View style={styles.themeRow}>
+              <Text style={styles.themeLabel}>{t("theme.title")}</Text>
+              <View style={styles.themePicker}>
+                {THEME_MODES.map((themeMode) => (
+                  <Pressable
+                    key={themeMode}
+                    style={[styles.themeOption, mode === themeMode && styles.themeOptionActive]}
+                    onPress={() => setMode(themeMode)}
+                  >
+                    <Ionicons
+                      name={THEME_ICONS[themeMode]}
+                      size={16}
+                      color={mode === themeMode ? colors.accent : colors.textSecondary}
+                    />
+                    <Text style={[styles.themeOptionText, mode === themeMode && styles.themeOptionTextActive]}>
+                      {t(`theme.${themeMode}`)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
           </View>
 
           <View style={styles.leaderboardSection}>
             <View style={styles.tabRow}>
-              <Pressable
-                style={[styles.tabButton, activeTab === "been_there" && styles.tabButtonActive]}
-                onPress={() => setActiveTab("been_there")}
-              >
-                <Text style={[styles.tabButtonText, activeTab === "been_there" && styles.tabButtonTextActive]}>
-                  {t("profile.tabs.beenThere")}
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[styles.tabButton, activeTab === "want_to_go" && styles.tabButtonActive]}
-                onPress={() => setActiveTab("want_to_go")}
-              >
-                <Text style={[styles.tabButtonText, activeTab === "want_to_go" && styles.tabButtonTextActive]}>
-                  {t("profile.tabs.wantToGo")}
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[styles.tabButton, activeTab === "collections" && styles.tabButtonActive]}
-                onPress={() => setActiveTab("collections")}
-              >
-                <Text style={[styles.tabButtonText, activeTab === "collections" && styles.tabButtonTextActive]}>
-                  {t("profile.tabs.collections")}
-                </Text>
-              </Pressable>
+              {LEADERBOARD_TABS.map((tab) => (
+                <Pressable key={tab.key} style={styles.tabButton} onPress={() => setActiveTab(tab.key)}>
+                  <Text style={[styles.tabButtonText, activeTab === tab.key && styles.tabButtonTextActive]}>
+                    {t(tab.labelKey)}
+                  </Text>
+                </Pressable>
+              ))}
+              <Animated.View
+                style={[styles.tabUnderline, { left: leaderboardUnderlineLeft, width: `${100 / LEADERBOARD_TABS.length}%` }]}
+              />
             </View>
+            <View style={styles.tabRowDivider} />
 
             {listsLoading ? (
               <View style={styles.listLoading}>
@@ -487,7 +971,7 @@ export default function ProfileScreen() {
             ) : activeTab === "been_there" ? (
               loggedBathrooms.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <FloralBloom size={32} color={colors.borderStrong} />
+                  <FlowerMark size={40} color={colors.border} sw={0.75} />
                   <Text style={styles.emptyListText}>
                     Nothing logged yet - use "Rate & log" on a bathroom to start your leaderboard.
                   </Text>
@@ -497,7 +981,7 @@ export default function ProfileScreen() {
                   {loggedBathrooms.map((review, index) => (
                     <Pressable
                       key={review.id}
-                      style={[styles.leaderboardRow, cardShadow("sm")]}
+                      style={[styles.leaderboardRow, cardShadow("sm", scheme)]}
                       onPress={() => handleOpenBathroom(review.bathroom_id)}
                     >
                       <Text style={styles.rankText}>{index + 1}</Text>
@@ -512,8 +996,8 @@ export default function ProfileScreen() {
                         ) : null}
                       </View>
                       <View style={styles.ratingBadge}>
-                        <Ionicons name="star" size={12} color={colors.gold} />
-                        <Text style={styles.ratingBadgeText}>{review.overall_rating.toFixed(1)}</Text>
+                        <FlowerMark size={12} color={pinFill(review.overall_rating)} filled />
+                        <Text style={[styles.ratingBadgeText, { color: pinFill(review.overall_rating) }]}>{review.overall_rating.toFixed(1)}</Text>
                       </View>
                     </Pressable>
                   ))}
@@ -522,7 +1006,7 @@ export default function ProfileScreen() {
             ) : activeTab === "want_to_go" ? (
               savedBathrooms.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <FloralBloom size={32} color={colors.borderStrong} />
+                  <FlowerMark size={40} color={colors.border} sw={0.75} />
                   <Text style={styles.emptyListText}>
                     Nothing saved yet - tap the heart on a bathroom's card on the map to bookmark it.
                   </Text>
@@ -532,7 +1016,7 @@ export default function ProfileScreen() {
                 {savedBathrooms.map((bathroom) => (
                   <Pressable
                     key={bathroom.id}
-                    style={[styles.leaderboardRow, cardShadow("sm")]}
+                    style={[styles.leaderboardRow, cardShadow("sm", scheme)]}
                     onPress={() => handleOpenOnMap(bathroom.id)}
                   >
                     <View style={styles.rowMain}>
@@ -564,7 +1048,7 @@ export default function ProfileScreen() {
                       accessibilityLabel={`Remove ${bathroom.name} from saved`}
                     >
                       {removingId === bathroom.id ? (
-                        <ActivityIndicator size="small" color={colors.danger} />
+                        <ArabesqueLoader size={18} color={colors.danger} />
                       ) : (
                         <Ionicons name="heart" size={18} color={colors.danger} />
                       )}
@@ -575,7 +1059,7 @@ export default function ProfileScreen() {
               )
             ) : collections.length === 0 ? (
               <View style={styles.emptyState}>
-                <FloralBloom size={32} color={colors.borderStrong} />
+                <FlowerMark size={40} color={colors.border} sw={0.75} />
                 <Text style={styles.emptyListText}>No collections yet - save a bathroom to one to create it.</Text>
               </View>
             ) : (
@@ -583,7 +1067,7 @@ export default function ProfileScreen() {
                 {collections.map((list) => (
                   <Pressable
                     key={list.id}
-                    style={[styles.leaderboardRow, cardShadow("sm")]}
+                    style={[styles.leaderboardRow, cardShadow("sm", scheme)]}
                     onPress={() => router.push(`/collections/${list.id}`)}
                   >
                     <View style={styles.collectionIcon}>
@@ -631,408 +1115,3 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  centerContent: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  screenHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-  },
-  headerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  headerIconButton: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerBadge: {
-    position: "absolute",
-    top: 2,
-    right: 2,
-    minWidth: 15,
-    height: 15,
-    paddingHorizontal: 3,
-    borderRadius: radii.full,
-    backgroundColor: colors.danger,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerBadgeText: {
-    fontSize: 9,
-    fontWeight: fontWeight.bold,
-    color: colors.textOnAccent,
-  },
-  scrollContent: {
-    alignItems: "center",
-    paddingVertical: spacing.lg,
-  },
-  contentInner: {
-    width: "100%",
-    maxWidth: 480,
-    paddingHorizontal: spacing.lg,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.xl,
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: spacing.md,
-  },
-  identityRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    flex: 1,
-    minWidth: 0,
-  },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: radii.full,
-    backgroundColor: colors.accentMuted,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarImage: {
-    width: 56,
-    height: 56,
-    borderRadius: radii.full,
-  },
-  avatarOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: radii.full,
-    backgroundColor: colors.overlay,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarBadge: {
-    position: "absolute",
-    bottom: -2,
-    right: -2,
-    width: 20,
-    height: 20,
-    borderRadius: radii.full,
-    backgroundColor: colors.accentStrong,
-    borderWidth: 2,
-    borderColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: {
-    fontSize: fontSize.xl,
-    fontWeight: fontWeight.bold,
-    color: colors.textPrimary,
-  },
-  textBlock: {
-    gap: 4,
-    flex: 1,
-    minWidth: 0,
-  },
-  name: {
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.bold,
-    color: colors.textPrimary,
-  },
-  nameInput: {
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.bold,
-    color: colors.textPrimary,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderStrong,
-    paddingVertical: 2,
-  },
-  username: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-  },
-  usernameInput: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderStrong,
-    paddingVertical: 2,
-    marginTop: 2,
-  },
-  pointsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  pointsText: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    color: colors.textPrimary,
-  },
-  signOutButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  signOutText: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
-    color: colors.danger,
-  },
-  errorText: {
-    fontSize: fontSize.sm,
-    color: colors.danger,
-  },
-  editProfileButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    alignSelf: "flex-start",
-  },
-  editProfileText: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
-    color: colors.accentStrong,
-  },
-  languageRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  languageLabel: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-  },
-  languagePicker: {
-    flexDirection: "row",
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: radii.full,
-    padding: 2,
-  },
-  languageOption: {
-    paddingHorizontal: spacing.sm,
-    height: 28,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radii.full,
-  },
-  languageOptionActive: {
-    backgroundColor: colors.surface,
-    ...cardShadow("sm"),
-  },
-  languageOptionText: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.medium,
-    color: colors.textSecondary,
-  },
-  languageOptionTextActive: {
-    color: colors.textPrimary,
-    fontWeight: fontWeight.semibold,
-  },
-  statsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: radii.lg,
-    paddingVertical: spacing.sm,
-  },
-  statBlock: {
-    flex: 1,
-    alignItems: "center",
-    gap: 2,
-  },
-  statDivider: {
-    width: 1,
-    alignSelf: "stretch",
-    backgroundColor: colors.border,
-  },
-  statValueRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-  },
-  statValue: {
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.bold,
-    color: colors.textPrimary,
-  },
-  statLabel: {
-    fontSize: fontSize.xs,
-    color: colors.textSecondary,
-  },
-  leaderboardSection: {
-    marginTop: spacing.xl,
-    gap: spacing.md,
-  },
-  tabRow: {
-    flexDirection: "row",
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: radii.full,
-    padding: 3,
-  },
-  tabButton: {
-    flex: 1,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radii.full,
-  },
-  tabButtonActive: {
-    backgroundColor: colors.surface,
-    ...cardShadow("sm"),
-  },
-  tabButtonText: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
-    color: colors.textSecondary,
-  },
-  tabButtonTextActive: {
-    color: colors.textPrimary,
-    fontWeight: fontWeight.semibold,
-  },
-  listLoading: {
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingVertical: spacing.xl,
-  },
-  retryText: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    color: colors.accentStrong,
-  },
-  emptyState: {
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingTop: spacing.md,
-  },
-  emptyListText: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-    textAlign: "center",
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.xl,
-  },
-  listGap: {
-    gap: spacing.sm,
-  },
-  leaderboardRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    padding: spacing.md,
-  },
-  rankText: {
-    width: 20,
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    color: colors.textMuted,
-    textAlign: "center",
-  },
-  collectionIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: radii.md,
-    backgroundColor: colors.accentMuted,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  rowMain: {
-    flex: 1,
-    minWidth: 0,
-    gap: 2,
-  },
-  rowName: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.semibold,
-    color: colors.textPrimary,
-  },
-  rowVenue: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-  },
-  rowMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  rowMetaText: {
-    fontSize: fontSize.xs,
-    color: colors.textSecondary,
-  },
-  ratingBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: colors.goldMuted,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: radii.full,
-  },
-  ratingBadgeText: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-    color: colors.textPrimary,
-  },
-  removeButton: {
-    padding: spacing.xs,
-  },
-  editActionsRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  cancelButton: {
-    paddingHorizontal: spacing.md,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  cancelButtonText: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
-    color: colors.textSecondary,
-  },
-  saveButton: {
-    flex: 1,
-    backgroundColor: colors.accent,
-    height: 40,
-    borderRadius: radii.lg,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  saveButtonDisabled: {
-    opacity: 0.5,
-  },
-  saveButtonText: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    color: colors.textOnAccent,
-  },
-});

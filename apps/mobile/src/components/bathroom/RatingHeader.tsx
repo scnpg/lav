@@ -1,6 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
 
+import { FlowerMark } from "../FlowerMark";
+import { pinFill } from "../../lib/pinColor";
 import { colors, fontSize, fontWeight, radii, spacing } from "../../theme";
 
 interface RatingHeaderProps {
@@ -24,8 +26,14 @@ export function RatingHeader({ globalScore, reviewCount, yourRating }: RatingHea
       <View style={styles.block}>
         <Text style={styles.label}>Global</Text>
         <View style={styles.valueRow}>
-          <Ionicons name="star" size={20} color={colors.gold} />
-          <Text style={styles.value}>{globalScore !== null ? formatTen(globalScore) : "—"}</Text>
+          {globalScore !== null ? (
+            <>
+              <FlowerMark size={20} color={pinFill(globalScore)} filled />
+              <Text style={[styles.value, { color: pinFill(globalScore) }]}>{formatTen(globalScore)}</Text>
+            </>
+          ) : (
+            <Text style={styles.value}>—</Text>
+          )}
         </View>
         <Text style={styles.subtext}>
           {reviewCount} log{reviewCount === 1 ? "" : "s"}

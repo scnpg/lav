@@ -2,14 +2,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { ArabesquePattern } from "../../src/components/ArabesquePattern";
+import { AnimatedTileBackdrop } from "../../src/components/AnimatedTileBackdrop";
+import { ArabesqueLoader } from "../../src/components/ArabesqueLoader";
 import { LavLogo } from "../../src/components/LavLogo";
 import { useAuth } from "../../src/lib/auth";
 import { uploadAvatar } from "../../src/lib/profiles";
-import { colors, fontSize, fontWeight, lineHeight, radii, spacing } from "../../src/theme";
+import { fontSize, fontWeight, lineHeight, radii, serif, spacing, useTheme, useThemedStyles } from "../../src/theme";
 
 // Letters, numbers, underscore - mirrors handle_new_user()'s auto-generated
 // shape (supabase/migrations/0004_triggers.sql), just enforced up front here
@@ -23,12 +24,124 @@ const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 // the only skippable part - username is required to finish.
 export default function OnboardingScreen() {
   const { user, profile, updateUsername, updateDisplayName, completeOnboarding } = useAuth();
+  const { colors } = useTheme();
   const [username, setUsername] = useState(profile?.username ?? "");
   const [displayName, setDisplayName] = useState(profile?.display_name ?? "");
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url ?? null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const styles = useThemedStyles((c) => ({
+    container: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    patternLayer: {
+      position: "absolute" as const,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    scrollContent: {
+      flexGrow: 1,
+      alignItems: "center" as const,
+      paddingHorizontal: spacing["2xl"],
+      paddingVertical: spacing["2xl"],
+    },
+    description: {
+      fontFamily: serif.italic,
+      marginTop: spacing.md,
+      fontSize: fontSize.base,
+      color: c.textSecondary,
+      lineHeight: fontSize.base * lineHeight.relaxed,
+      textAlign: "center" as const,
+    },
+    avatarButton: {
+      alignItems: "center" as const,
+      gap: spacing.xs,
+      marginTop: spacing.xl,
+    },
+    avatarCircle: {
+      width: 100,
+      height: 100,
+      borderRadius: radii.full,
+      overflow: "hidden" as const,
+    },
+    avatarPlaceholder: {
+      width: 100,
+      height: 100,
+      borderRadius: radii.full,
+      backgroundColor: c.accentMuted,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    avatarImage: {
+      width: 100,
+      height: 100,
+      borderRadius: radii.full,
+    },
+    avatarOverlay: {
+      position: "absolute" as const,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: c.overlay,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    avatarLabel: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.medium,
+      color: c.accentStrong,
+    },
+    form: {
+      width: "100%" as const,
+      maxWidth: 360,
+      gap: spacing.sm,
+      marginTop: spacing.xl,
+    },
+    fieldLabel: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.medium,
+      color: c.textSecondary,
+      marginTop: spacing.xs,
+    },
+    input: {
+      backgroundColor: c.surface,
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: c.border,
+      paddingHorizontal: spacing.md,
+      height: 48,
+      fontSize: fontSize.base,
+      color: c.textPrimary,
+    },
+    error: {
+      color: c.danger,
+      fontSize: fontSize.sm,
+    },
+    button: {
+      backgroundColor: c.accent,
+      borderRadius: radii.lg,
+      height: 48,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      marginTop: spacing.sm,
+    },
+    buttonDisabled: {
+      opacity: 0.5,
+    },
+    buttonText: {
+      color: c.textOnAccent,
+      fontSize: fontSize.base,
+      fontWeight: fontWeight.semibold,
+    },
+  }));
 
   async function handlePickPhoto() {
     if (!user) return;
@@ -94,7 +207,7 @@ export default function OnboardingScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
       <View style={styles.patternLayer} pointerEvents="none">
-        <ArabesquePattern rows={16} columns={7} starSize={22} gap={16} opacity={0.05} />
+        <AnimatedTileBackdrop opacity={0.05} />
       </View>
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <LavLogo size={32} />
@@ -111,7 +224,7 @@ export default function OnboardingScreen() {
             )}
             {uploadingPhoto ? (
               <View style={styles.avatarOverlay}>
-                <ActivityIndicator color={colors.textOnOverlay} />
+                <ArabesqueLoader size={22} color={colors.textOnOverlay} />
               </View>
             ) : null}
           </View>
@@ -147,7 +260,7 @@ export default function OnboardingScreen() {
             disabled={saving || !username.trim()}
           >
             {saving ? (
-              <ActivityIndicator color={colors.textOnAccent} />
+              <ArabesqueLoader size={20} color={colors.textOnAccent} />
             ) : (
               <Text style={styles.buttonText}>Finish</Text>
             )}
@@ -157,113 +270,3 @@ export default function OnboardingScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  patternLayer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  scrollContent: {
-    flexGrow: 1,
-    alignItems: "center",
-    paddingHorizontal: spacing["2xl"],
-    paddingVertical: spacing["2xl"],
-  },
-  description: {
-    marginTop: spacing.md,
-    fontSize: fontSize.base,
-    color: colors.textSecondary,
-    lineHeight: fontSize.base * lineHeight.relaxed,
-    textAlign: "center",
-  },
-  avatarButton: {
-    alignItems: "center",
-    gap: spacing.xs,
-    marginTop: spacing.xl,
-  },
-  avatarCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: radii.full,
-    overflow: "hidden",
-  },
-  avatarPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: radii.full,
-    backgroundColor: colors.accentMuted,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarImage: {
-    width: 100,
-    height: 100,
-    borderRadius: radii.full,
-  },
-  avatarOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: colors.overlay,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarLabel: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
-    color: colors.accentStrong,
-  },
-  form: {
-    width: "100%",
-    maxWidth: 360,
-    gap: spacing.sm,
-    marginTop: spacing.xl,
-  },
-  fieldLabel: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  input: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    height: 48,
-    fontSize: fontSize.base,
-    color: colors.textPrimary,
-  },
-  error: {
-    color: colors.danger,
-    fontSize: fontSize.sm,
-  },
-  button: {
-    backgroundColor: colors.accent,
-    borderRadius: radii.lg,
-    height: 48,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: spacing.sm,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: colors.textOnAccent,
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.semibold,
-  },
-});

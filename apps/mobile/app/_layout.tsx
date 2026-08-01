@@ -1,3 +1,4 @@
+import { useFonts } from "expo-font";
 import { Stack, usePathname, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -7,31 +8,47 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { LoadingScreen } from "../src/components/LoadingScreen";
 import { initLanguage } from "../src/i18n";
 import { AuthProvider, useAuth } from "../src/lib/auth";
-import { colors } from "../src/theme";
+import { FONTS_TO_LOAD, ThemeProvider, useTheme } from "../src/theme";
 
 export default function RootLayout() {
   // Gated on languageReady (not just fired-and-forgotten) so the very first
   // render already has the right strings loaded - initLanguage's AsyncStorage
   // read is async, and letting screens mount before it resolves would flash
   // English (or whatever i18next's synchronous init default is) for a beat
-  // even for someone who chose 繁體中文/Español last time.
+  // even for someone who chose 繁體中文/Español last time. fontsLoaded gates
+  // the same way, for the same reason (avoid a flash of the wordmark in the
+  // system fallback font before EB Garamond is ready).
   const [languageReady, setLanguageReady] = useState(false);
+  const [fontsLoaded] = useFonts(FONTS_TO_LOAD);
   useEffect(() => {
     initLanguage().finally(() => setLanguageReady(true));
   }, []);
 
-  if (!languageReady) return <LoadingScreen />;
-
+  // ThemeProvider itself is NOT behind this gate - LoadingScreen renders
+  // theme-aware components (tile logo, shapeshifting loader, animated
+  // background), so it needs a ThemeProvider ancestor too, or useTheme()
+  // inside it would throw during the very screen meant to cover this wait.
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <StatusBar style="dark" />
-        <AuthProvider>
-          <AuthGatedStack />
-        </AuthProvider>
-      </SafeAreaProvider>
+      <ThemeProvider>
+        <SafeAreaProvider>
+          <ThemedStatusBar />
+          {!languageReady || !fontsLoaded ? (
+            <LoadingScreen />
+          ) : (
+            <AuthProvider>
+              <AuthGatedStack />
+            </AuthProvider>
+          )}
+        </SafeAreaProvider>
+      </ThemeProvider>
     </GestureHandlerRootView>
   );
+}
+
+function ThemedStatusBar() {
+  const { scheme } = useTheme();
+  return <StatusBar style={scheme === "nocturne" ? "light" : "dark"} />;
 }
 
 // Browsing (the map and every tab) works signed-out - bathrooms are
@@ -51,6 +68,7 @@ export default function RootLayout() {
 // fallback, not the end state.
 function AuthGatedStack() {
   const { session, profile, loading, isPasswordRecovery } = useAuth();
+  const { colors } = useTheme();
   const segments = useSegments();
   const pathname = usePathname();
   const router = useRouter();

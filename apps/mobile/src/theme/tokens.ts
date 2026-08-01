@@ -1,72 +1,119 @@
-// Lav design tokens. Warm porcelain/ceramic tile palette - an ivory base and
-// soft cream card surfaces with a deep Spanish ceramic blue as the primary
-// accent, evoking glazed tilework in full warm light rather than a cool
-// whitewashed-plaster look or a flat corporate blue (see git history for
-// prior palettes - this one intentionally warms back up from an even more
-// recent cooler near-white pass). No NativeWind/Tailwind here on purpose:
-// this stack pins Expo SDK 56 / React 19.2 / RN 0.85 / Babel 8, all newer
-// than NativeWind 4.2.6's tested range, so we use a small hand-rolled token
-// + StyleSheet system instead of betting the build on an unverified babel
-// plugin. Keeps the same "utility scale" ergonomics Tailwind gives you.
+// Lav design tokens. "Paper" - verbatim from the real Figma Make source
+// (T.light in the current App.tsx export, confirmed by downloading and
+// reading the actual project code - see git history/plan for how an earlier
+// pass got this wrong from a stale export). Warm parchment base, muted
+// ink-blue accent (not a saturated corporate blue), warm ink text. No
+// NativeWind/Tailwind here on purpose: this stack pins Expo SDK 56 /
+// React 19.2 / RN 0.85 / Babel 8, all newer than NativeWind 4.2.6's tested
+// range, so we use a small hand-rolled token + StyleSheet system instead of
+// betting the build on an unverified babel plugin.
 //
 // Contrast note: sand/sky/gold/success/warning/danger below are all
 // light-to-mid pastels, so none of them are legible as small foreground
-// text/icon color directly on the ivory background - checked against WCAG
-// contrast math, they land around 2.3-4:1, well under the 4.5:1 normal-text
-// bar. The working pattern across every component: use these colors as
-// FILLS (button/chip/badge/pin backgrounds) with textOnAccent (ink) on top,
-// never as bare text color on background/card. `accent`/`accentStrong`
-// specifically are NOT pastels - they're a genuinely dark, saturated blue,
-// which is why textOnAccent is white rather than ink (every call site that
-// uses textOnAccent pairs it with an accent/accentStrong fill - confirmed by
-// grep, not a token shared with the pastel chips above).
+// text/icon color directly on the parchment background. The working pattern
+// across every component: use these colors as FILLS (button/chip/badge/pin
+// backgrounds) with textOnAccent on top, never as bare text color on
+// background/card. `textOnAccent` is the surface color itself (not white) -
+// `accent` is a muted, mid-value navy, dark enough that the parchment
+// surface tone reads clearly on top of it (confirmed against the reference:
+// the "SIGN IN" button uses `color: c.surface` on `background: c.accent`).
 export const colors = {
-  background: "#FDFBF7", // warm porcelain/ivory - the screen background
-  surface: "#F5F2EB", // soft cream ceramic - card/sheet/input bases
-  surfaceMuted: "#EFEAE0", // neutral muted fill (progress tracks, etc - not chip backgrounds, see `sand`), warmed to match
-  border: "#E5DFD1", // soft warm border
-  borderStrong: "#D6CDB8",
+  background: "#FAF7F0", // warm parchment - the screen background
+  surface: "#F2EDE2", // raised card/sheet/input base
+  surfaceMuted: "#EAE3D5", // overlay/muted fill (progress tracks, etc)
+  border: "#DDD6C8", // hairline rule
+  borderStrong: "#C7BCA1",
 
-  textPrimary: "#252824", // deep ink
-  textSecondary: "#6F6A5F", // muted secondary
-  textMuted: "#96907F",
-  textOnAccent: "#FFFFFF", // white - accent/accentStrong are dark+saturated now, not pastel; see contrast note
+  textPrimary: "#1F1D1A", // deep ink
+  textSecondary: "#6E675E", // muted secondary
+  textMuted: "#6E675E",
+  textOnAccent: "#FAF7F0", // the surface/parchment color itself, not white - accent is a mid-value muted navy, not dark+saturated
   textOnOverlay: "#FFFFFF", // text/icons over colors.overlay (a dark scrim), NOT over an accent fill
 
-  accent: "#2563EB", // deep Spanish ceramic blue - primary buttons, selected states, important CTAs
-  accentMuted: "#DCE7FB",
-  accentStrong: "#1E3A8A", // ceramic blue, pressed/darker navy
+  accent: "#3D5488", // muted ink-blue - primary buttons, selected states, important CTAs
+  accentMuted: "#DDE3EF",
+  accentStrong: "#2A3B63", // pressed/darker navy
 
-  sky: "#BBCCF2", // map accents, selected map pins, distance badges, calm informational surfaces
-  skyMuted: "#EAF0FC",
+  sky: "#B8C4DC", // map accents, selected map pins, distance badges, calm informational surfaces
+  skyMuted: "#EDF0F6",
 
-  sand: "#F2E1BB", // chips, access tags, amenity pills, soft highlights
-  sandMuted: "#FAF1DE",
+  sand: "#E8D9B8", // chips, access tags, amenity pills, soft highlights
+  sandMuted: "#F5EDDC",
 
   gold: "#B8923A", // unchanged - star ratings, kept distinct from the warning/clay semantics below
-  goldMuted: "#F6EDD8",
+  goldMuted: "#F3E8D2",
 
-  success: "#7E9F75", // palm green - verified, open now, accessible, high-score states
-  successMuted: "#E8EFE2",
-  warning: "#C99F73", // muted clay - purchase required, code required, limited access, needs verification
-  warningMuted: "#F4E9DA",
-  danger: "#C9827A", // dusty rose - optional negative states
-  dangerMuted: "#F6E5E1",
+  success: "#4F6F66", // "cool" in the Figma source - verified, open now, accessible, high-score states
+  successMuted: "#E1EAE6",
+  warning: "#8C4630", // "warm" in the Figma source - purchase required, code required, limited access, needs verification
+  warningMuted: "#F0E0D6",
+  danger: "#8C3A2E", // optional negative states
+  dangerMuted: "#F0DBD6",
 
-  overlay: "rgba(20, 19, 16, 0.45)",
+  overlay: "rgba(31, 29, 26, 0.45)",
 } as const;
 
-// Recorded for a future dark-mode pass - NOT wired up to anything yet.
-// There's no color-scheme switching infrastructure in this app today
-// (app.json pins userInterfaceStyle to "light", and every screen imports
-// `colors` above as a single static object, not a reactive theme) - actually
-// supporting dark mode means every one of those call sites switching off
-// useColorScheme, a much larger job than a palette swap. This just keeps
-// the two values on file so that work has a starting point.
-export const darkColors = {
-  background: "#181816",
-  surface: "#242320",
+// "Nocturne" - the dark counterpart to the palette above, wired up via
+// ThemeContext.tsx/useTheme(). Same key shape as `colors` so every consumer
+// (useThemedStyles factories) can swap between the two without touching
+// anything else. Source: a Figma Make export the user provided, extracted
+// verbatim from that prototype's theme.css (see git history/plan for the
+// extraction) - background/surface/surfaceMuted/border/textPrimary/
+// textMuted/accent/accentMuted/accentStrong/success/warning/danger below are
+// the exact hex values from that source, not eyeballed. Every other key is
+// interpolated to match the same shape.
+//
+// textOnAccent flips to dark ink here (unlike the light palette's white):
+// `accent` in Nocturne is a *light* periwinkle (#8FA6D8), so white text on
+// it would fail contrast - confirmed against the reference screenshot,
+// whose primary button shows dark navy text on the light blue fill, not
+// white. `overlay` is deliberately NOT a flat hex like the other surfaces:
+// it's always paired with textOnOverlay as a translucent scrim layered over
+// photos/content, so it stays a dark rgba here too, just deeper than the
+// light palette's.
+export const nocturneColors = {
+  background: "#14161B",
+  surface: "#1B1E25",
+  surfaceMuted: "#22262F",
+  border: "#333944",
+  borderStrong: "#454C5A",
+
+  textPrimary: "#EDE7DA",
+  textSecondary: "#C9C2B4",
+  textMuted: "#A39C91",
+  textOnAccent: "#14161B",
+  textOnOverlay: "#FFFFFF",
+
+  accent: "#8FA6D8",
+  accentMuted: "#2A3350",
+  accentStrong: "#B3C3E6",
+
+  sky: "#6E88BE",
+  skyMuted: "#1E2536",
+
+  sand: "#C9AD7C",
+  sandMuted: "#2A2418",
+
+  gold: "#D4B268",
+  goldMuted: "#332B1C",
+
+  success: "#7FA79A",
+  successMuted: "#212F2B",
+  warning: "#D08A6A",
+  warningMuted: "#3A2C24",
+  danger: "#D9765F",
+  dangerMuted: "#3A2521",
+
+  overlay: "rgba(8, 9, 12, 0.6)",
 } as const;
+
+/**
+ * The shape every palette (light `colors` or dark `nocturneColors`) must
+ * match - widened to plain `string` per key (rather than `typeof colors`
+ * directly), since that would pin every value to `colors`' own literal hex
+ * strings and reject `nocturneColors`' different ones.
+ */
+export type ColorTokens = { [K in keyof typeof colors]: string };
 
 export const spacing = {
   xs: 4,

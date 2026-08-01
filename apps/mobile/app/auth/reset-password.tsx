@@ -1,12 +1,12 @@
-import { useRouter } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { ArabesquePattern } from "../../src/components/ArabesquePattern";
+import { AnimatedTileBackdrop } from "../../src/components/AnimatedTileBackdrop";
+import { ArabesqueLoader } from "../../src/components/ArabesqueLoader";
 import { LavLogo } from "../../src/components/LavLogo";
 import { useAuth } from "../../src/lib/auth";
-import { colors, fontSize, fontWeight, lineHeight, radii, spacing } from "../../src/theme";
+import { fontSize, fontWeight, lineHeight, radii, serif, spacing, useTheme, useThemedStyles } from "../../src/theme";
 
 // Matches Supabase Auth's default minimum_password_length (see
 // supabase/config.toml [auth] - unset, so the CLI default of 6 applies).
@@ -19,11 +19,88 @@ const MIN_PASSWORD_LENGTH = 6;
 // proof of identity, same as every other password-reset flow works.
 export default function ResetPasswordScreen() {
   const { updatePassword } = useAuth();
-  const router = useRouter();
+  const { colors } = useTheme();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const styles = useThemedStyles((c) => ({
+    container: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    patternLayer: {
+      position: "absolute" as const,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    content: {
+      flex: 1,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      paddingHorizontal: spacing["2xl"],
+      gap: spacing.md,
+    },
+    description: {
+      fontFamily: serif.italic,
+      fontSize: fontSize.base,
+      color: c.textSecondary,
+      lineHeight: fontSize.base * lineHeight.relaxed,
+      textAlign: "center" as const,
+    },
+    form: {
+      width: "100%" as const,
+      gap: spacing.sm,
+      marginTop: spacing.lg,
+    },
+    fieldLabel: {
+      fontSize: fontSize.xs,
+      color: c.textSecondary,
+      fontWeight: fontWeight.medium,
+      letterSpacing: 1,
+      textTransform: "uppercase" as const,
+      marginBottom: 2,
+    },
+    input: {
+      backgroundColor: c.surface,
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: c.border,
+      paddingHorizontal: spacing.md,
+      height: 48,
+      fontSize: fontSize.base,
+      color: c.textPrimary,
+    },
+    hint: {
+      color: c.textMuted,
+      fontSize: fontSize.sm,
+    },
+    error: {
+      color: c.danger,
+      fontSize: fontSize.sm,
+    },
+    button: {
+      backgroundColor: c.accent,
+      borderRadius: radii.lg,
+      height: 48,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      marginTop: spacing.xs,
+    },
+    buttonDisabled: {
+      opacity: 0.5,
+    },
+    buttonText: {
+      color: c.textOnAccent,
+      fontSize: fontSize.base,
+      fontWeight: fontWeight.semibold,
+    },
+  }));
 
   const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword;
   const passwordTooShort = password.length > 0 && password.length < MIN_PASSWORD_LENGTH;
@@ -47,13 +124,14 @@ export default function ResetPasswordScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
       <View style={styles.patternLayer} pointerEvents="none">
-        <ArabesquePattern rows={14} columns={7} starSize={22} gap={16} opacity={0.05} />
+        <AnimatedTileBackdrop opacity={0.05} />
       </View>
       <View style={styles.content}>
         <LavLogo size={32} />
         <Text style={styles.description}>Set a new password for your account.</Text>
 
         <View style={styles.form}>
+          <Text style={styles.fieldLabel}>New password</Text>
           <TextInput
             value={password}
             onChangeText={setPassword}
@@ -64,6 +142,7 @@ export default function ResetPasswordScreen() {
             textContentType="newPassword"
             returnKeyType="next"
           />
+          <Text style={styles.fieldLabel}>Confirm new password</Text>
           <TextInput
             value={confirmPassword}
             onChangeText={setConfirmPassword}
@@ -89,7 +168,7 @@ export default function ResetPasswordScreen() {
             disabled={submitting || !canSubmit}
           >
             {submitting ? (
-              <ActivityIndicator color={colors.textOnAccent} />
+              <ArabesqueLoader size={20} color={colors.textOnAccent} />
             ) : (
               <Text style={styles.buttonText}>Update password</Text>
             )}
@@ -99,71 +178,3 @@ export default function ResetPasswordScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  patternLayer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  content: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: spacing["2xl"],
-    gap: spacing.md,
-  },
-  description: {
-    fontSize: fontSize.base,
-    color: colors.textSecondary,
-    lineHeight: fontSize.base * lineHeight.relaxed,
-    textAlign: "center",
-  },
-  form: {
-    width: "100%",
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-  },
-  input: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    height: 48,
-    fontSize: fontSize.base,
-    color: colors.textPrimary,
-  },
-  hint: {
-    color: colors.textMuted,
-    fontSize: fontSize.sm,
-  },
-  error: {
-    color: colors.danger,
-    fontSize: fontSize.sm,
-  },
-  button: {
-    backgroundColor: colors.accent,
-    borderRadius: radii.lg,
-    height: 48,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: spacing.xs,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: colors.textOnAccent,
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.semibold,
-  },
-});

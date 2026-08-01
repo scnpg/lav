@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -25,7 +25,7 @@ import { useLiveLocation } from "../../src/hooks/useLiveLocation";
 import { useAuth } from "../../src/lib/auth";
 import { loadCachedBathrooms, saveCachedBathrooms } from "../../src/lib/bathroomCache";
 import { haversineDistanceMeters } from "../../src/lib/geo";
-import { cardShadow, colors, fontSize, fontWeight, radii, spacing } from "../../src/theme";
+import { cardShadow, fontSize, fontWeight, radii, spacing, useTheme, useThemedStyles } from "../../src/theme";
 import type { BathroomNearby, BathroomPublic, BathroomReview } from "../../src/types/database";
 
 
@@ -45,6 +45,82 @@ function isViewportTooWide(bounds: MapBounds): boolean {
 
 export default function MapScreen() {
   const { t } = useTranslation();
+  const { colors, scheme } = useTheme();
+  const styles = useThemedStyles((c) => ({
+    container: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    topControls: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.md,
+      gap: spacing.sm,
+    },
+    filtersRow: {
+      marginBottom: spacing.xs,
+    },
+    mapArea: {
+      flex: 1,
+      marginTop: spacing.sm,
+    },
+    locationButton: {
+      position: "absolute" as const,
+      bottom: spacing.lg,
+      right: spacing.lg,
+      width: 44,
+      height: 44,
+      borderRadius: radii.full,
+      backgroundColor: c.surface,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    addButton: {
+      position: "absolute" as const,
+      bottom: spacing.lg,
+      left: spacing.lg,
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 6,
+      height: 40,
+      paddingHorizontal: spacing.md,
+      borderRadius: radii.md,
+      backgroundColor: c.accent,
+      borderWidth: 2,
+      borderColor: c.surface,
+    },
+    addButtonText: {
+      color: c.textOnAccent,
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+    },
+    overlayBanner: {
+      position: "absolute" as const,
+      top: spacing.md,
+      left: spacing.md,
+      right: spacing.md,
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.sm,
+      backgroundColor: c.surface,
+      borderRadius: radii.lg,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    errorBanner: {
+      backgroundColor: c.dangerMuted,
+      justifyContent: "space-between" as const,
+    },
+    overlayBannerText: {
+      color: c.textPrimary,
+      fontSize: fontSize.sm,
+      flexShrink: 1,
+    },
+    retryText: {
+      color: c.accentStrong,
+      fontSize: fontSize.sm,
+      fontWeight: "600" as const,
+    },
+  }));
   const FILTER_OPTIONS: FilterOption[] = useMemo(
     () => [
       { key: "free", label: t("map.filters.free") },
@@ -571,14 +647,14 @@ export default function MapScreen() {
         ) : null}
 
         <Pressable
-          style={[styles.locationButton, cardShadow("md")]}
+          style={[styles.locationButton, cardShadow("md", scheme)]}
           onPress={handleUseMyLocation}
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={t("map.locateMe")}
         >
           {locationStatus === "requesting" ? (
-            <ActivityIndicator size="small" color={colors.accentStrong} />
+            <ArabesqueLoader size={18} color={colors.accentStrong} />
           ) : (
             <Ionicons
               name="locate"
@@ -589,7 +665,7 @@ export default function MapScreen() {
         </Pressable>
 
         <PressableScale
-          style={[styles.addButton, cardShadow("md")]}
+          style={[styles.addButton, cardShadow("md", scheme)]}
           borderRadius={radii.md}
           onPress={() => {
             setSelectedId(null);
@@ -635,78 +711,3 @@ export default function MapScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  topControls: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    gap: spacing.sm,
-  },
-  filtersRow: {
-    marginBottom: spacing.xs,
-  },
-  mapArea: {
-    flex: 1,
-    marginTop: spacing.sm,
-  },
-  locationButton: {
-    position: "absolute",
-    bottom: spacing.lg,
-    right: spacing.lg,
-    width: 44,
-    height: 44,
-    borderRadius: radii.full,
-    backgroundColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  addButton: {
-    position: "absolute",
-    bottom: spacing.lg,
-    left: spacing.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    height: 40,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.md,
-    backgroundColor: colors.accent,
-    borderWidth: 2,
-    borderColor: colors.surface,
-  },
-  addButtonText: {
-    color: colors.textOnAccent,
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-  },
-  overlayBanner: {
-    position: "absolute",
-    top: spacing.md,
-    left: spacing.md,
-    right: spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  errorBanner: {
-    backgroundColor: colors.dangerMuted,
-    justifyContent: "space-between",
-  },
-  overlayBannerText: {
-    color: colors.textPrimary,
-    fontSize: fontSize.sm,
-    flexShrink: 1,
-  },
-  retryText: {
-    color: colors.accentStrong,
-    fontSize: fontSize.sm,
-    fontWeight: "600",
-  },
-});

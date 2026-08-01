@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 
-import { colors } from "../theme";
+import { useTheme } from "../theme";
+import { Lattice } from "./Lattice";
 
 interface EightPointedStarProps {
   size: number;
@@ -14,12 +16,20 @@ interface EightPointedStarProps {
 // package.json) - the same "shape from plain rotated Views" trick already
 // used for the map-pin crosshair (PinPickerMap.web/native.tsx) and the map
 // pin teardrop shape, just two squares instead of one.
-export function EightPointedStar({ size, color = colors.accent, strokeWidth = 1.5 }: EightPointedStarProps) {
+//
+// `color` defaults to the LIVE theme accent (useTheme(), not a static
+// import) - dozens of call sites across the app never pass an explicit
+// color, so this default is what makes them track the active Paper/Nocturne
+// palette instead of staying visually pinned to whichever palette was
+// static-imported when this file first loaded.
+export function EightPointedStar({ size, color, strokeWidth = 1.5 }: EightPointedStarProps) {
+  const { colors } = useTheme();
+  const resolvedColor = color ?? colors.accent;
   const squareStyle = {
     width: size,
     height: size,
     borderWidth: strokeWidth,
-    borderColor: color,
+    borderColor: resolvedColor,
   };
   return (
     <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
@@ -53,7 +63,9 @@ interface FloralBloomProps {
 // stroke-outline weight the sharp uncurved corners lined up into a hexagram
 // silhouette, reading as a Star of David rather than a flower. Four lenses
 // at 45deg increments avoids that 6-fold coincidence entirely.)
-export function FloralBloom({ size, color = colors.accent, petals = 8, strokeWidth = 1.5, filled = false, centerDot = false }: FloralBloomProps) {
+export function FloralBloom({ size, color, petals = 8, strokeWidth = 1.5, filled = false, centerDot = false }: FloralBloomProps) {
+  const { colors } = useTheme();
+  const resolvedColor = color ?? colors.accent;
   const lensCount = Math.max(2, Math.round(petals / 2));
   const lensSize = size * 0.62;
   const angleStep = 180 / lensCount;
@@ -63,8 +75,8 @@ export function FloralBloom({ size, color = colors.accent, petals = 8, strokeWid
     borderTopRightRadius: lensSize / 2,
     borderBottomLeftRadius: lensSize / 2,
     ...(filled
-      ? { backgroundColor: color }
-      : { borderWidth: strokeWidth, borderColor: color, backgroundColor: "transparent" as const }),
+      ? { backgroundColor: resolvedColor }
+      : { borderWidth: strokeWidth, borderColor: resolvedColor, backgroundColor: "transparent" as const }),
   };
   return (
     <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
@@ -72,58 +84,66 @@ export function FloralBloom({ size, color = colors.accent, petals = 8, strokeWid
         <View key={i} style={[styles.lens, lensStyle, { transform: [{ rotate: `${angleStep * i}deg` }] }]} />
       ))}
       {centerDot ? (
-        <View style={[styles.centerDot, { width: size * 0.14, height: size * 0.14, borderRadius: size * 0.07, backgroundColor: color }]} />
+        <View style={[styles.centerDot, { width: size * 0.14, height: size * 0.14, borderRadius: size * 0.07, backgroundColor: resolvedColor }]} />
       ) : null}
     </View>
   );
 }
 
-interface ArabesquePatternProps {
-  starSize?: number;
-  gap?: number;
-  rows?: number;
-  columns?: number;
+interface TileFrameProps {
+  size: number;
   color?: string;
+  backgroundColor?: string;
+  children: React.ReactNode;
+}
+
+// A fitted square border around whatever's passed as children - turns a
+// bare motif (a flower, a loading spinner) into something that reads as a
+// single ceramic bathroom tile, rather than a shape floating with nothing
+// around it. Shared by LavLogo (the static logo mark) and ArabesqueLoader's
+// `framed` variant, so "what a tile frame looks like" is defined exactly
+// once. Corner radius is proportional to size (not a fixed `radii` token) so
+// it reads as "squared tile" rather than "rounded blob" across the range of
+// sizes this actually gets used at (18-48px).
+export function TileFrame({ size, color, backgroundColor, children }: TileFrameProps) {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size * 0.15,
+        borderWidth: Math.max(1.5, size / 16),
+        borderColor: color ?? colors.accentStrong,
+        backgroundColor: backgroundColor ?? colors.surface,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {children}
+    </View>
+  );
+}
+
+interface ArabesquePatternProps {
   opacity?: number;
-  /** "star" (original rub el hizb only), "floral" (bloom only), or "mixed" (alternates per cell, checkerboard-style - the richer default). */
-  motif?: "star" | "floral" | "mixed";
 }
 
 // A subtle tiled backdrop - decorative texture for quiet moments (auth
-// screens, empty states), not something to drop behind dense content.
-// Deliberately low default opacity - a watermark, not a busy pattern,
-// matching "not too corporate but not gaudy either". `motif="mixed"`
-// alternates star/floral per cell so the backdrop reads as a real tessellated
-// tile pattern (star AND flower, the way actual Andalusian zellige tilework
-// combines both in one wall) rather than one shape repeated flatly.
-export function ArabesquePattern({
-  starSize = 28,
-  gap = 20,
-  rows = 6,
-  columns = 6,
-  color = colors.accent,
-  opacity = 0.08,
-  motif = "mixed",
-}: ArabesquePatternProps) {
-  const cell = starSize + gap;
+// screens, empty states), not something to drop behind dense content. Now a
+// thin non-animated wrapper around the real azulejo-tile Lattice (see
+// Lattice.tsx) - the actual reference tile photo, not an invented shape
+// grid - for the handful of static (non-scrolling) call sites; see
+// AnimatedTileBackdrop.tsx for the animated version used everywhere else.
+export function ArabesquePattern({ opacity }: ArabesquePatternProps) {
+  const [area, setArea] = useState({ width: 0, height: 0 });
   return (
-    <View style={{ opacity, gap }} pointerEvents="none">
-      {Array.from({ length: rows }).map((_, row) => (
-        <View key={row} style={{ flexDirection: "row", gap }}>
-          {Array.from({ length: columns }).map((_, col) => {
-            const useFloral = motif === "floral" || (motif === "mixed" && (row + col) % 2 === 1);
-            return (
-              <View key={col} style={{ width: cell, height: cell, alignItems: "center", justifyContent: "center" }}>
-                {useFloral ? (
-                  <FloralBloom size={starSize} color={color} />
-                ) : (
-                  <EightPointedStar size={starSize} color={color} />
-                )}
-              </View>
-            );
-          })}
-        </View>
-      ))}
+    <View
+      style={{ alignSelf: "stretch", flex: 1 }}
+      pointerEvents="none"
+      onLayout={(e) => setArea({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
+    >
+      <Lattice width={area.width} height={area.height} opacity={opacity} />
     </View>
   );
 }

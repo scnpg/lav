@@ -3,9 +3,10 @@ import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ArabesqueLoader } from "../../src/components/ArabesqueLoader";
 import { LevelBadge } from "../../src/components/LevelBadge";
 import { Toast } from "../../src/components/Toast";
 import { BathroomActionPanel } from "../../src/components/bathroom/BathroomActionPanel";
@@ -34,7 +35,7 @@ import { getBathroomLiveStatus } from "../../src/features/bathrooms/statusApi";
 import { getListsContainingBathroom } from "../../src/features/lists/api";
 import { useAuth } from "../../src/lib/auth";
 import { formatRelativeTime } from "../../src/lib/format";
-import { cardShadow, colors, fontSize, fontWeight, spacing } from "../../src/theme";
+import { cardShadow, fontSize, fontWeight, spacing, useTheme, useThemedStyles } from "../../src/theme";
 import type { BathroomImage, BathroomLiveStatus, BathroomPublic, BathroomReviewStats } from "../../src/types/database";
 import type { VibeTag } from "../../src/types/enums";
 
@@ -46,6 +47,225 @@ export default function BathroomDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, isAdmin } = useAuth();
+  const { colors, scheme } = useTheme();
+
+  const styles = useThemedStyles((c) => ({
+    container: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    centerContainer: {
+      flex: 1,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      backgroundColor: c.background,
+    },
+    scrollContent: {
+      flexGrow: 1,
+    },
+    heroWrapper: {
+      position: "relative" as const,
+    },
+    backButton: {
+      position: "absolute" as const,
+      left: spacing.lg,
+      width: 38,
+      height: 38,
+      borderRadius: 999,
+      backgroundColor: c.surface,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    reportButton: {
+      position: "absolute" as const,
+      right: spacing.lg,
+      width: 38,
+      height: 38,
+      borderRadius: 999,
+      backgroundColor: c.surface,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    content: {
+      padding: spacing.lg,
+      gap: spacing["2xl"],
+    },
+    titleBlock: {
+      gap: spacing.xs,
+    },
+    nameRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.xs,
+    },
+    name: {
+      fontSize: fontSize["2xl"],
+      fontWeight: fontWeight.bold,
+      color: c.textPrimary,
+    },
+    nameEditButton: {
+      padding: 4,
+    },
+    venue: {
+      fontSize: fontSize.base,
+      color: c.textSecondary,
+    },
+    address: {
+      fontSize: fontSize.sm,
+      color: c.textMuted,
+    },
+    tagRow: {
+      flexDirection: "row" as const,
+      flexWrap: "wrap" as const,
+      gap: spacing.xs,
+      marginTop: spacing.xs,
+    },
+    tagChip: {
+      backgroundColor: c.sand,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 4,
+      borderRadius: 999,
+    },
+    tagChipText: {
+      fontSize: fontSize.xs,
+      color: c.textPrimary,
+      fontWeight: fontWeight.medium,
+    },
+    rateButton: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      gap: spacing.sm,
+      backgroundColor: c.accent,
+      borderRadius: 999,
+      height: 52,
+    },
+    rateButtonText: {
+      fontSize: fontSize.base,
+      fontWeight: fontWeight.semibold,
+      color: c.textOnAccent,
+    },
+    quickCheckButton: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      gap: spacing.xs,
+      borderWidth: 1,
+      borderColor: c.border,
+      borderRadius: 999,
+      height: 40,
+    },
+    quickCheckButtonText: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.medium,
+      color: c.textPrimary,
+    },
+    reviewsSection: {
+      gap: spacing.md,
+    },
+    sectionTitle: {
+      fontSize: fontSize.md,
+      fontWeight: fontWeight.semibold,
+      color: c.textPrimary,
+    },
+    reviewCard: {
+      gap: 4,
+      backgroundColor: c.surface,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: c.border,
+      padding: spacing.md,
+    },
+    reviewHeaderRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      justifyContent: "space-between" as const,
+      gap: spacing.sm,
+    },
+    reviewAuthorRow: {
+      flex: 1,
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.sm,
+    },
+    reviewAvatar: {
+      width: 30,
+      height: 30,
+      borderRadius: 999,
+      backgroundColor: c.accentMuted,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    reviewAvatarImage: {
+      width: 30,
+      height: 30,
+      borderRadius: 999,
+    },
+    reviewAvatarInitial: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.bold,
+      color: c.textPrimary,
+    },
+    reviewAuthorText: {
+      flex: 1,
+      minWidth: 0,
+      gap: 2,
+    },
+    reviewAuthor: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      color: c.textPrimary,
+    },
+    reviewScoreBadge: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 4,
+      backgroundColor: c.goldMuted,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 3,
+      borderRadius: 999,
+    },
+    reviewScoreText: {
+      fontSize: fontSize.xs,
+      fontWeight: fontWeight.semibold,
+      color: c.textPrimary,
+    },
+    reviewTime: {
+      fontSize: fontSize.xs,
+      color: c.textMuted,
+    },
+    reviewText: {
+      fontSize: fontSize.sm,
+      color: c.textPrimary,
+      marginTop: 2,
+    },
+    notFoundContainer: {
+      flex: 1,
+      backgroundColor: c.background,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      paddingHorizontal: spacing["2xl"],
+      gap: spacing.md,
+    },
+    notFoundTitle: {
+      fontSize: fontSize.lg,
+      fontWeight: fontWeight.semibold,
+      color: c.textPrimary,
+    },
+    notFoundText: {
+      fontSize: fontSize.sm,
+      color: c.textSecondary,
+      textAlign: "center" as const,
+    },
+    backLink: {
+      marginTop: spacing.md,
+    },
+    backLinkText: {
+      fontSize: fontSize.base,
+      fontWeight: fontWeight.semibold,
+      color: c.textPrimary,
+    },
+  }));
 
   const [bathroom, setBathroom] = useState<BathroomPublic | null>(null);
   const [loading, setLoading] = useState(true);
@@ -212,7 +432,7 @@ export default function BathroomDetailScreen() {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator color={colors.accentStrong} />
+        <ArabesqueLoader size={32} color={colors.accentStrong} framed />
       </View>
     );
   }
@@ -242,14 +462,14 @@ export default function BathroomDetailScreen() {
         <View style={styles.heroWrapper}>
           <MediaCarousel images={images} />
           <Pressable
-            style={[styles.backButton, { top: insets.top + spacing.sm }, cardShadow("md")]}
+            style={[styles.backButton, { top: insets.top + spacing.sm }, cardShadow("md", scheme)]}
             onPress={() => router.back()}
             hitSlop={8}
           >
             <Ionicons name="chevron-back" size={22} color={colors.textPrimary} />
           </Pressable>
           <Pressable
-            style={[styles.reportButton, { top: insets.top + spacing.sm }, cardShadow("md")]}
+            style={[styles.reportButton, { top: insets.top + spacing.sm }, cardShadow("md", scheme)]}
             onPress={handleOpenReportModal}
             hitSlop={8}
             accessibilityRole="button"
@@ -417,220 +637,3 @@ export default function BathroomDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  centerContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.background,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  heroWrapper: {
-    position: "relative",
-  },
-  backButton: {
-    position: "absolute",
-    left: spacing.lg,
-    width: 38,
-    height: 38,
-    borderRadius: 999,
-    backgroundColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  reportButton: {
-    position: "absolute",
-    right: spacing.lg,
-    width: 38,
-    height: 38,
-    borderRadius: 999,
-    backgroundColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  content: {
-    padding: spacing.lg,
-    gap: spacing["2xl"],
-  },
-  titleBlock: {
-    gap: spacing.xs,
-  },
-  nameRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-  },
-  name: {
-    fontSize: fontSize["2xl"],
-    fontWeight: fontWeight.bold,
-    color: colors.textPrimary,
-  },
-  nameEditButton: {
-    padding: 4,
-  },
-  venue: {
-    fontSize: fontSize.base,
-    color: colors.textSecondary,
-  },
-  address: {
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
-  },
-  tagRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
-    marginTop: spacing.xs,
-  },
-  tagChip: {
-    backgroundColor: colors.sand,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  tagChipText: {
-    fontSize: fontSize.xs,
-    color: colors.textPrimary,
-    fontWeight: fontWeight.medium,
-  },
-  rateButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    backgroundColor: colors.accent,
-    borderRadius: 999,
-    height: 52,
-  },
-  rateButtonText: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.semibold,
-    color: colors.textOnAccent,
-  },
-  quickCheckButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 999,
-    height: 40,
-  },
-  quickCheckButtonText: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
-    color: colors.textPrimary,
-  },
-  reviewsSection: {
-    gap: spacing.md,
-  },
-  sectionTitle: {
-    fontSize: fontSize.md,
-    fontWeight: fontWeight.semibold,
-    color: colors.textPrimary,
-  },
-  reviewCard: {
-    gap: 4,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-  },
-  reviewHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-  },
-  reviewAuthorRow: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  reviewAvatar: {
-    width: 30,
-    height: 30,
-    borderRadius: 999,
-    backgroundColor: colors.accentMuted,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  reviewAvatarImage: {
-    width: 30,
-    height: 30,
-    borderRadius: 999,
-  },
-  reviewAvatarInitial: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.bold,
-    color: colors.textPrimary,
-  },
-  reviewAuthorText: {
-    flex: 1,
-    minWidth: 0,
-    gap: 2,
-  },
-  reviewAuthor: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    color: colors.textPrimary,
-  },
-  reviewScoreBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: colors.goldMuted,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderRadius: 999,
-  },
-  reviewScoreText: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-    color: colors.textPrimary,
-  },
-  reviewTime: {
-    fontSize: fontSize.xs,
-    color: colors.textMuted,
-  },
-  reviewText: {
-    fontSize: fontSize.sm,
-    color: colors.textPrimary,
-    marginTop: 2,
-  },
-  notFoundContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: spacing["2xl"],
-    gap: spacing.md,
-  },
-  notFoundTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.semibold,
-    color: colors.textPrimary,
-  },
-  notFoundText: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-    textAlign: "center",
-  },
-  backLink: {
-    marginTop: spacing.md,
-  },
-  backLinkText: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.semibold,
-    color: colors.textPrimary,
-  },
-});

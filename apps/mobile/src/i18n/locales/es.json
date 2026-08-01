@@ -79,5 +79,11 @@
     "en": "English",
     "zh-Hant": "繁體中文",
     "es": "Español"
+  },
+  "theme": {
+    "title": "Apariencia",
+    "paper": "Papel",
+    "nocturne": "Nocturno",
+    "system": "Sistema"
   }
 }

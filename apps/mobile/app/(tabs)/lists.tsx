@@ -1,16 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ArabesqueLoader } from "../../src/components/ArabesqueLoader";
 import { LavLogo } from "../../src/components/LavLogo";
 import { ACCESS_TYPE_LABELS, COST_TYPE_LABELS } from "../../src/constants/enumLabels";
 import { getSavedBathrooms, toggleBookmark } from "../../src/features/bathrooms/api";
 import { getListItemCounts, getListsForUser } from "../../src/features/lists/api";
 import { useAuth } from "../../src/lib/auth";
 import { formatScore } from "../../src/lib/format";
-import { cardShadow, colors, fontSize, fontWeight, radii, spacing } from "../../src/theme";
+import { cardShadow, fontSize, fontWeight, radii, spacing, useTheme, useThemedStyles } from "../../src/theme";
 import type { BathroomList, BathroomPublic } from "../../src/types/database";
 
 // A directory of every list the user has - their custom collections
@@ -22,7 +23,127 @@ import type { BathroomList, BathroomPublic } from "../../src/types/database";
 // bathroom_lists.
 export default function ListsScreen() {
   const { user } = useAuth();
+  const { colors, scheme } = useTheme();
   const router = useRouter();
+  const styles = useThemedStyles((c) => ({
+    container: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    centerContent: {
+      flex: 1,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      paddingHorizontal: spacing["2xl"],
+      gap: spacing.sm,
+    },
+    header: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.md,
+    },
+    title: {
+      fontSize: fontSize.xl,
+      fontWeight: fontWeight.bold,
+      color: c.textPrimary,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.sm,
+    },
+    backRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.xs,
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.sm,
+    },
+    emptyText: {
+      fontSize: fontSize.sm,
+      color: c.textSecondary,
+      textAlign: "center" as const,
+    },
+    errorText: {
+      fontSize: fontSize.sm,
+      color: c.danger,
+      textAlign: "center" as const,
+    },
+    signInButton: {
+      backgroundColor: c.accent,
+      borderRadius: radii.lg,
+      paddingHorizontal: spacing.lg,
+      height: 40,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      marginTop: spacing.xs,
+    },
+    signInButtonText: {
+      color: c.textOnAccent,
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+    },
+    listContent: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing["2xl"],
+      gap: spacing.sm,
+    },
+    listIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: radii.md,
+      backgroundColor: c.accentMuted,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    row: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.sm,
+      backgroundColor: c.surface,
+      borderRadius: radii.lg,
+      padding: spacing.md,
+    },
+    rowMain: {
+      flex: 1,
+      minWidth: 0,
+      gap: 2,
+    },
+    rowName: {
+      fontSize: fontSize.base,
+      fontWeight: fontWeight.semibold,
+      color: c.textPrimary,
+    },
+    rowVenue: {
+      fontSize: fontSize.sm,
+      color: c.textSecondary,
+    },
+    rowMetaRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.sm,
+      marginTop: spacing.xs,
+    },
+    rowMetaText: {
+      fontSize: fontSize.xs,
+      color: c.textSecondary,
+    },
+    scoreBadge: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 4,
+      backgroundColor: c.goldMuted,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+      borderRadius: radii.full,
+    },
+    scoreText: {
+      fontSize: fontSize.xs,
+      fontWeight: fontWeight.semibold,
+      color: c.textPrimary,
+    },
+    removeButton: {
+      padding: spacing.xs,
+    },
+  }));
   const [bathrooms, setBathrooms] = useState<BathroomPublic[]>([]);
   const [collections, setCollections] = useState<BathroomList[]>([]);
   const [collectionCounts, setCollectionCounts] = useState<Map<string, number>>(new Map());
@@ -106,7 +227,7 @@ export default function ListsScreen() {
     return (
       <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
         <View style={styles.centerContent}>
-          <ActivityIndicator color={colors.accentStrong} />
+          <ArabesqueLoader size={32} color={colors.accentStrong} framed />
         </View>
       </SafeAreaView>
     );
@@ -148,7 +269,7 @@ export default function ListsScreen() {
               <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.accentStrong} />
             }
             renderItem={({ item }) => (
-              <Pressable style={[styles.row, cardShadow("sm")]} onPress={() => handleOpenOnMap(item.id)}>
+              <Pressable style={[styles.row, cardShadow("sm", scheme)]} onPress={() => handleOpenOnMap(item.id)}>
                 <View style={styles.rowMain}>
                   <Text style={styles.rowName} numberOfLines={1}>
                     {item.name}
@@ -186,7 +307,7 @@ export default function ListsScreen() {
                   accessibilityLabel={`Remove ${item.name} from saved`}
                 >
                   {removingId === item.id ? (
-                    <ActivityIndicator size="small" color={colors.danger} />
+                    <ArabesqueLoader size={18} color={colors.danger} />
                   ) : (
                     <Ionicons name="heart" size={20} color={colors.danger} />
                   )}
@@ -211,7 +332,7 @@ export default function ListsScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.accentStrong} />
         }
       >
-        <Pressable style={[styles.row, cardShadow("sm")]} onPress={() => setViewingSaved(true)}>
+        <Pressable style={[styles.row, cardShadow("sm", scheme)]} onPress={() => setViewingSaved(true)}>
           <View style={styles.listIcon}>
             <Ionicons name="bookmark" size={18} color={colors.accentStrong} />
           </View>
@@ -227,7 +348,7 @@ export default function ListsScreen() {
         {collections.map((list) => (
           <Pressable
             key={list.id}
-            style={[styles.row, cardShadow("sm")]}
+            style={[styles.row, cardShadow("sm", scheme)]}
             onPress={() => router.push(`/collections/${list.id}`)}
           >
             <View style={styles.listIcon}>
@@ -250,122 +371,3 @@ export default function ListsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  centerContent: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: spacing["2xl"],
-    gap: spacing.sm,
-  },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-  },
-  title: {
-    fontSize: fontSize.xl,
-    fontWeight: fontWeight.bold,
-    color: colors.textPrimary,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-  },
-  backRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-  },
-  emptyText: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-    textAlign: "center",
-  },
-  errorText: {
-    fontSize: fontSize.sm,
-    color: colors.danger,
-    textAlign: "center",
-  },
-  signInButton: {
-    backgroundColor: colors.accent,
-    borderRadius: radii.lg,
-    paddingHorizontal: spacing.lg,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: spacing.xs,
-  },
-  signInButtonText: {
-    color: colors.textOnAccent,
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-  },
-  listContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing["2xl"],
-    gap: spacing.sm,
-  },
-  listIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: radii.md,
-    backgroundColor: colors.accentMuted,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    padding: spacing.md,
-  },
-  rowMain: {
-    flex: 1,
-    minWidth: 0,
-    gap: 2,
-  },
-  rowName: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.semibold,
-    color: colors.textPrimary,
-  },
-  rowVenue: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-  },
-  rowMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  rowMetaText: {
-    fontSize: fontSize.xs,
-    color: colors.textSecondary,
-  },
-  scoreBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: colors.goldMuted,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radii.full,
-  },
-  scoreText: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-    color: colors.textPrimary,
-  },
-  removeButton: {
-    padding: spacing.xs,
-  },
-});

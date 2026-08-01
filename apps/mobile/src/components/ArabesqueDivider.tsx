@@ -1,6 +1,6 @@
 import { StyleSheet, View } from "react-native";
 
-import { colors } from "../theme";
+import { useTheme } from "../theme";
 
 interface ArabesqueDividerProps {
   color?: string;
@@ -15,11 +15,13 @@ interface ArabesqueDividerProps {
 // around whole screens - a full picture-frame border on every surface would
 // fight the content instead of framing it. Same rotated-square trick as
 // EightPointedStar, just one square instead of two, repeated in a row.
-export function ArabesqueDivider({ color = colors.accent, count = 16, size = 6 }: ArabesqueDividerProps) {
+export function ArabesqueDivider({ color, count = 16, size = 6 }: ArabesqueDividerProps) {
+  const { colors } = useTheme();
+  const resolvedColor = color ?? colors.accent;
   return (
     <View style={styles.row} pointerEvents="none">
       {Array.from({ length: count }).map((_, i) => (
-        <View key={i} style={[styles.diamond, { width: size, height: size, borderColor: color }]} />
+        <View key={i} style={[styles.diamond, { width: size, height: size, borderColor: resolvedColor }]} />
       ))}
     </View>
   );

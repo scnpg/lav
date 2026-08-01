@@ -5,6 +5,7 @@ import Supercluster from "supercluster";
 
 import { DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, IS_USING_FALLBACK_MAP_STYLE, MAP_STYLE_URL } from "../../lib/mapStyle";
 import { applyLavMapTheme } from "../../lib/mapTheme";
+import { PIN, pinColorRgb, pinFill } from "../../lib/pinColor";
 import { colors, fontSize, fontWeight, radii } from "../../theme";
 import type { BathroomNearby } from "../../types/database";
 
@@ -54,9 +55,20 @@ interface MapViewProps {
 // One point per exact coordinate, not one per bathroom - see the grouping
 // step in the `[bathrooms]` effect below. bathroomIds.length > 1 means this
 // point represents Phase 4's "micro-group" (identical-coordinate) case.
+// avgScore is the mean of only the RATED members (review_count > 0) at that
+// coordinate - undefined when none are rated yet (an unrated pin).
 interface ClusterPointProps {
   bathroomIds: string[];
-  overallScore: number;
+  avgScore?: number;
+}
+
+// What supercluster aggregates a leaf's properties into when several points
+// merge into one spatial cluster (via the `map`/`reduce` options below) -
+// tracks a running sum/count of only the RATED leaves so a cluster's average
+// score never gets dragged down by unrated bathrooms mixed in.
+interface ClusterAggProps {
+  scoreSum: number;
+  ratedCount: number;
 }
 
 const MAPLIBRE_CSS_HREF = "https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css";
@@ -113,80 +125,165 @@ function ensureRTLTextPlugin() {
   }
 }
 
-function createPinElement(): HTMLDivElement {
+// Minimal stroke SVG (15x15), ported verbatim from the real Figma source's
+// PaperRollIcon - used inline on every ScorePill since these markers are raw
+// DOM nodes (see the file-level comment on why: maplibre-gl markers are
+// plain `document.createElement` elements, not React components).
+function paperRollIconSvg(color: string): string {
+  return `<svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+    <rect x="1.5" y="2" width="12" height="11" rx="2.8" stroke="${color}" stroke-width="1.35"/>
+    <circle cx="7.5" cy="7.5" r="2" stroke="${color}" stroke-width="1.2"/>
+    <line x1="7.5" y1="13" x2="7.5" y2="14.5" stroke="${color}" stroke-width="1.35" stroke-linecap="round"/>
+  </svg>`;
+}
+
+// Single-bathroom marker - a rounded pill colored by the shared score
+// gradient (pinFill, see lib/pinColor.ts), matching the Figma spec exactly:
+// 30px tall, fully rounded, paper-roll icon + score text. Unrated (no
+// reviews yet) gets a white/hairline-border/em-dash treatment instead of a
+// score color. `friend`/`visited` variants from the reference spec are
+// intentionally not implemented yet - both need per-user data (friendship,
+// logged status) joined into the map's own bathroom fetch, a separate
+// data-plumbing change from this visual port.
+function createScorePillElement(score: number | undefined): HTMLDivElement {
   const el = document.createElement("div");
-  el.style.width = "32px";
-  el.style.height = "32px";
-  el.style.borderRadius = "999px";
-  el.style.backgroundColor = colors.surface;
-  el.style.border = `2px solid ${colors.accentStrong}`;
   el.style.display = "flex";
   el.style.alignItems = "center";
-  el.style.justifyContent = "center";
-  el.style.fontSize = "11px";
-  el.style.fontWeight = "700";
-  el.style.color = colors.textPrimary;
+  el.style.gap = "5px";
+  el.style.height = "30px";
+  el.style.paddingLeft = "12px";
+  el.style.paddingRight = "12px";
+  el.style.borderRadius = "15px";
   el.style.cursor = "pointer";
-  el.style.boxShadow = "0 2px 4px rgba(37, 40, 36, 0.25)";
+  el.style.boxShadow = "0 2px 4px rgba(0, 0, 0, 0.2)";
+
+  const icon = document.createElement("div");
+  icon.style.display = "flex";
+  icon.style.opacity = "0.85";
+
+  const text = document.createElement("span");
+  text.style.fontSize = "14px";
+  text.style.fontWeight = "600";
+  text.style.lineHeight = "1";
+
+  el.appendChild(icon);
+  el.appendChild(text);
+  updateScorePillElement(el, score);
   return el;
 }
 
-// Selected pins fill with sky blue (not the lagoon teal used for buttons/
-// chips elsewhere) - per the palette's map-specific usage rule. Text stays
-// ink either way: both the cream default and the sky-blue selected fill
-// are light enough that ink reads clearly on both.
-function applySelectedStyle(el: HTMLDivElement, isSelected: boolean) {
-  el.style.backgroundColor = isSelected ? colors.sky : colors.surface;
-  el.style.color = colors.textPrimary;
+// Refreshes a pill's score-dependent look in place (fill/border/icon
+// color/label) without rebuilding its DOM structure - called on every
+// render for the leaf (single-bathroom) case, since a bathroom's score can
+// change between fetches (a new rating coming in) even when its marker
+// element is being reused.
+function updateScorePillElement(el: HTMLDivElement, score: number | undefined) {
+  const unrated = score === undefined;
+  const fill = unrated ? PIN.unratedFill : pinFill(score);
+  const textColor = unrated ? PIN.unratedText : "#FFFFFF";
+  const label = unrated ? "—" : score.toFixed(1);
+
+  el.style.backgroundColor = fill;
+  el.style.border = unrated ? `1px solid ${PIN.unratedBorder}` : "none";
+
+  const icon = el.children[0] as HTMLDivElement;
+  icon.innerHTML = paperRollIconSvg(textColor);
+  const text = el.children[1] as HTMLSpanElement;
+  text.style.color = textColor;
+  text.textContent = label;
 }
 
-// Cluster bubbles use the same lagoon-teal fill as primary buttons/CTAs
-// (not the individual-pin cream+sky treatment above) so a glance at the map
-// tells clusters and single bathrooms apart. Size steps with point_count so
-// a 3-pin cluster doesn't look as heavy as a 300-pin one.
-function createClusterElement(count: number): HTMLDivElement {
-  const size = count >= 100 ? 64 : count >= 25 ? 52 : 40;
+// Selection is shown as an accent ring around whatever fill the pill already
+// has (score color, or the white/hairline unrated look) - never by
+// overriding the fill itself, since the fill's whole purpose now is to
+// communicate score at a glance.
+function applySelectedStyle(el: HTMLDivElement, isSelected: boolean) {
+  el.style.boxShadow = isSelected
+    ? `0 0 0 3px ${colors.accentStrong}, 0 2px 4px rgba(0, 0, 0, 0.2)`
+    : "0 2px 4px rgba(0, 0, 0, 0.2)";
+}
+
+// Several bathrooms at one spot (either an exact-coordinate "group" or a
+// supercluster spatial cluster) - 2-4 gets a SmallCluster (a ScorePill with
+// a count chip tucked behind it), 5+ gets a LargeCluster (a halo'd circle
+// sized sm/md/lg by count). Both share the same avg-score coloring so
+// "several bathrooms" always reads on the same green-to-red scale as a
+// single one, regardless of why they're grouped.
+function createClusterElement(count: number, avgScore: number | undefined): HTMLDivElement {
+  return count >= 5 ? createLargeClusterElement(count, avgScore) : createSmallClusterElement(count, avgScore);
+}
+
+function createSmallClusterElement(count: number, avgScore: number | undefined): HTMLDivElement {
+  const wrapper = document.createElement("div");
+  wrapper.style.display = "inline-flex";
+  wrapper.style.alignItems = "center";
+  wrapper.style.position = "relative";
+  wrapper.style.cursor = "pointer";
+
+  const pill = createScorePillElement(avgScore);
+  pill.style.position = "relative";
+  pill.style.zIndex = "2";
+  pill.style.boxShadow = "none";
+
+  const chip = document.createElement("div");
+  chip.style.position = "relative";
+  chip.style.zIndex = "1";
+  chip.style.marginLeft = "-8px";
+  chip.style.height = "26px";
+  chip.style.display = "flex";
+  chip.style.alignItems = "center";
+  chip.style.paddingLeft = "14px";
+  chip.style.paddingRight = "9px";
+  chip.style.borderRadius = "0 13px 13px 0";
+  chip.style.backgroundColor = PIN.chipBg;
+  chip.style.boxShadow = "0 2px 4px rgba(0, 0, 0, 0.2)";
+
+  const chipText = document.createElement("span");
+  chipText.style.fontSize = "12px";
+  chipText.style.fontWeight = "600";
+  chipText.style.color = PIN.chipText;
+  chipText.style.lineHeight = "1";
+  chipText.textContent = `+${count - 1}`;
+  chip.appendChild(chipText);
+
+  wrapper.appendChild(pill);
+  wrapper.appendChild(chip);
+  return wrapper;
+}
+
+function createLargeClusterElement(count: number, avgScore: number | undefined): HTMLDivElement {
+  const unrated = avgScore === undefined;
+  const label = count >= 100 ? "99+" : String(count);
+  const size = count >= 100 ? 60 : count >= 21 ? 50 : 40;
+  const fontSizePx = count >= 100 ? 17 : count >= 21 ? 16 : 15;
+  const haloWidth = count >= 100 ? 9 : count >= 21 ? 7 : 5;
+  const haloAlpha = count >= 100 ? 0.12 : count >= 21 ? 0.14 : 0.16;
+
+  const fill = unrated ? PIN.unratedFill : pinFill(avgScore);
+
   const el = document.createElement("div");
   el.style.width = `${size}px`;
   el.style.height = `${size}px`;
   el.style.borderRadius = "999px";
-  el.style.backgroundColor = colors.accent;
-  el.style.border = `2px solid ${colors.accentStrong}`;
+  el.style.backgroundColor = fill;
+  el.style.border = unrated ? `1px solid ${PIN.unratedBorder}` : "none";
+  el.style.boxShadow = unrated
+    ? "none"
+    : `0 0 0 ${haloWidth}px rgba(${pinColorRgbCss(avgScore)}, ${haloAlpha})`;
   el.style.display = "flex";
   el.style.alignItems = "center";
   el.style.justifyContent = "center";
-  el.style.fontSize = size >= 64 ? "16px" : size >= 52 ? "14px" : "12px";
-  el.style.fontWeight = "700";
-  el.style.color = colors.textOnAccent;
   el.style.cursor = "pointer";
-  el.style.boxShadow = "0 2px 6px rgba(37, 40, 36, 0.3)";
-  el.textContent = count >= 1000 ? `${Math.round(count / 100) / 10}k` : String(count);
+  el.textContent = label;
+  el.style.fontSize = `${fontSizePx}px`;
+  el.style.fontWeight = "600";
+  el.style.color = unrated ? PIN.unratedText : "#FFFFFF";
   return el;
 }
 
-// Phase 4 micro-grouping: a rounded-square badge (not a circle) so it's
-// visually distinct at a glance from both the circular individual pin and
-// the larger circular cluster bubble - "several bathrooms stacked at one
-// spot" reads differently from either "one bathroom" or "a cluster of
-// nearby-but-distinct locations". Sand fill matches the palette's existing
-// use of that color for chips/tags rather than reusing teal or cream.
-function createGroupPinElement(count: number): HTMLDivElement {
-  const el = document.createElement("div");
-  el.style.width = "34px";
-  el.style.height = "34px";
-  el.style.borderRadius = "10px";
-  el.style.backgroundColor = colors.sand;
-  el.style.border = `2px solid ${colors.warning}`;
-  el.style.display = "flex";
-  el.style.alignItems = "center";
-  el.style.justifyContent = "center";
-  el.style.fontSize = "13px";
-  el.style.fontWeight = "700";
-  el.style.color = colors.textPrimary;
-  el.style.cursor = "pointer";
-  el.style.boxShadow = "0 2px 4px rgba(37, 40, 36, 0.25)";
-  el.textContent = `×${count}`;
-  return el;
+function pinColorRgbCss(score: number): string {
+  const [r, g, b] = pinColorRgb(score);
+  return `${r},${g},${b}`;
 }
 
 // A plain min/max longitude bounding box breaks once points span more than
@@ -246,8 +343,8 @@ function createUserLocationElement(): HTMLDivElement {
 }
 
 function isClusterFeature(
-  feature: Supercluster.ClusterFeature<ClusterPointProps> | Supercluster.PointFeature<ClusterPointProps>
-): feature is Supercluster.ClusterFeature<ClusterPointProps> {
+  feature: Supercluster.ClusterFeature<ClusterAggProps> | Supercluster.PointFeature<ClusterPointProps>
+): feature is Supercluster.ClusterFeature<ClusterAggProps> {
   return (feature.properties as { cluster?: boolean }).cluster === true;
 }
 
@@ -270,7 +367,7 @@ export function MapView({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<globalThis.Map<string, Marker>>(new globalThis.Map());
-  const clusterIndexRef = useRef<Supercluster<ClusterPointProps, ClusterPointProps> | null>(null);
+  const clusterIndexRef = useRef<Supercluster<ClusterPointProps, ClusterAggProps> | null>(null);
   const userLocationMarkerRef = useRef<Marker | null>(null);
   const onSelectPinRef = useRef(onSelectPin);
   const onPressBackgroundRef = useRef(onPressBackground);
@@ -325,12 +422,13 @@ export function MapView({
       if (isClusterFeature(feature)) {
         const clusterId = feature.properties.cluster_id;
         const count = feature.properties.point_count;
+        const avgScore = feature.properties.ratedCount > 0 ? feature.properties.scoreSum / feature.properties.ratedCount : undefined;
         const key = `cluster:${clusterId}`;
         seenKeys.add(key);
 
         let marker = markersRef.current.get(key);
         if (!marker) {
-          const el = createClusterElement(count);
+          const el = createClusterElement(count, avgScore);
           el.addEventListener("click", (event) => {
             event.stopPropagation();
             const expansionZoom = Math.min(index.getClusterExpansionZoom(clusterId), 20);
@@ -344,15 +442,18 @@ export function MapView({
       } else if (feature.properties.bathroomIds.length > 1) {
         // Phase 4 micro-group: multiple bathrooms at the exact same
         // coordinate (e.g. every stall in one MRT station), rendered as one
-        // pin. Key on the sorted id list so it's stable across re-renders
-        // regardless of the source array's order.
+        // pin - the same SmallCluster/LargeCluster visuals as a spatial
+        // cluster (createClusterElement), so "several bathrooms stacked"
+        // reads consistently regardless of why they're grouped. Key on the
+        // sorted id list so it's stable across re-renders regardless of the
+        // source array's order.
         const bathroomIds = feature.properties.bathroomIds;
         const key = `group:${[...bathroomIds].sort().join(",")}`;
         seenKeys.add(key);
 
         let marker = markersRef.current.get(key);
         if (!marker) {
-          const el = createGroupPinElement(bathroomIds.length);
+          const el = createClusterElement(bathroomIds.length, feature.properties.avgScore);
           el.addEventListener("click", (event) => {
             event.stopPropagation();
             onSelectGroupRef.current?.(bathroomIds);
@@ -369,7 +470,7 @@ export function MapView({
 
         let marker = markersRef.current.get(key);
         if (!marker) {
-          const el = createPinElement();
+          const el = createScorePillElement(feature.properties.avgScore);
           el.addEventListener("click", (event) => {
             event.stopPropagation();
             onSelectPinRef.current(bathroomId);
@@ -378,7 +479,7 @@ export function MapView({
           markersRef.current.set(key, marker);
         }
         const el = marker.getElement() as HTMLDivElement;
-        el.textContent = feature.properties.overallScore.toFixed(1);
+        updateScorePillElement(el, feature.properties.avgScore);
         applySelectedStyle(el, bathroomId === selectedId);
       }
     }
@@ -552,16 +653,31 @@ export function MapView({
       else locationGroups.set(key, [b]);
     }
 
-    const index = new Supercluster<ClusterPointProps, ClusterPointProps>({ radius: 50, maxZoom: 16 });
+    // avgScore is the mean of only the RATED members at this coordinate
+    // (review_count > 0) - undefined (unrated) when none of them are, so an
+    // unrated group never gets dragged into a false low/high score color.
+    const index = new Supercluster<ClusterPointProps, ClusterAggProps>({
+      radius: 50,
+      maxZoom: 16,
+      map: (props) => ({
+        scoreSum: props.avgScore ?? 0,
+        ratedCount: props.avgScore !== undefined ? 1 : 0,
+      }),
+      reduce: (accumulated, props) => {
+        accumulated.scoreSum += props.scoreSum;
+        accumulated.ratedCount += props.ratedCount;
+      },
+    });
     index.load(
-      [...locationGroups.values()].map((group) => ({
-        type: "Feature",
-        properties: {
-          bathroomIds: group.map((b) => b.id),
-          overallScore: Math.max(...group.map((b) => b.overall_score)),
-        },
-        geometry: { type: "Point", coordinates: [group[0]!.longitude, group[0]!.latitude] },
-      }))
+      [...locationGroups.values()].map((group) => {
+        const rated = group.filter((b) => b.review_count > 0);
+        const avgScore = rated.length > 0 ? rated.reduce((sum, b) => sum + b.overall_score, 0) / rated.length : undefined;
+        return {
+          type: "Feature",
+          properties: { bathroomIds: group.map((b) => b.id), avgScore },
+          geometry: { type: "Point", coordinates: [group[0]!.longitude, group[0]!.latitude] },
+        };
+      })
     );
     clusterIndexRef.current = index;
 

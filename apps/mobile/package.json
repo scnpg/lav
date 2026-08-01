@@ -17,6 +17,7 @@
     "deploy": "pnpm build:web && npx gh-pages -d dist -b gh-pages -t"
   },
   "dependencies": {
+    "@expo-google-fonts/eb-garamond": "^0.4.3",
     "@expo/metro-runtime": "56.0.15",
     "@expo/vector-icons": "15.1.1",
     "@maplibre/maplibre-react-native": "11.3.6",

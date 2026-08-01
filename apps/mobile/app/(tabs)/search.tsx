@@ -2,11 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AnimatedTileBackdrop } from "../../src/components/AnimatedTileBackdrop";
 import { ArabesqueLoader } from "../../src/components/ArabesqueLoader";
-import { FloralBloom } from "../../src/components/ArabesquePattern";
+import { FlowerMark } from "../../src/components/FlowerMark";
 import { LavLogo } from "../../src/components/LavLogo";
 import { LevelBadge } from "../../src/components/LevelBadge";
 import { SearchBar } from "../../src/components/map/SearchBar";
@@ -16,7 +17,7 @@ import { useLiveLocation } from "../../src/hooks/useLiveLocation";
 import { useAuth } from "../../src/lib/auth";
 import { formatDistance, formatScore } from "../../src/lib/format";
 import { searchUsers, type ProfileLite } from "../../src/lib/profiles";
-import { cardShadow, colors, fontSize, fontWeight, radii, spacing } from "../../src/theme";
+import { cardShadow, fontSize, fontWeight, radii, spacing, useTheme, useThemedStyles } from "../../src/theme";
 import type { BathroomNearby } from "../../src/types/database";
 
 const PLACE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -53,12 +54,149 @@ const TABS: { key: SearchTab; label: string }[] = [
 export default function SearchScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { colors, scheme } = useTheme();
   const { coords: userLocation } = useLiveLocation();
 
   const [query, setQuery] = useState("");
   const trimmedQuery = query.trim();
   const isSearching = trimmedQuery.length > 0;
   const [activeTab, setActiveTab] = useState<SearchTab>("bathrooms");
+
+  const styles = useThemedStyles((c) => ({
+    container: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    header: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.md,
+    },
+    searchArea: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.sm,
+    },
+    emptyStateWrapper: {
+      flex: 1,
+      position: "relative" as const,
+    },
+    patternLayer: {
+      position: "absolute" as const,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+    },
+    emptyState: {
+      flex: 1,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      gap: spacing.md,
+      paddingHorizontal: spacing["2xl"],
+    },
+    emptyText: {
+      fontSize: fontSize.sm,
+      color: c.textSecondary,
+      textAlign: "center" as const,
+      marginTop: spacing.xl,
+    },
+    errorText: {
+      fontSize: fontSize.sm,
+      color: c.danger,
+      textAlign: "center" as const,
+      marginTop: spacing.xl,
+    },
+    loadingBlock: {
+      alignItems: "center" as const,
+      paddingTop: spacing["3xl"],
+    },
+    tabRow: {
+      flexDirection: "row" as const,
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.sm,
+      gap: spacing.sm,
+    },
+    tab: {
+      flex: 1,
+      alignItems: "center" as const,
+      paddingVertical: spacing.sm,
+      borderRadius: radii.md,
+      backgroundColor: c.surfaceMuted,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    tabActive: {
+      backgroundColor: c.accent,
+      borderColor: c.accent,
+    },
+    tabText: {
+      fontSize: fontSize.xs,
+      fontWeight: fontWeight.semibold,
+      color: c.textSecondary,
+    },
+    tabTextActive: {
+      color: c.textOnAccent,
+    },
+    resultsContent: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing["2xl"],
+      gap: spacing.sm,
+    },
+    row: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.sm,
+      backgroundColor: c.surface,
+      borderRadius: radii.lg,
+      padding: spacing.md,
+    },
+    rowMain: {
+      flex: 1,
+      minWidth: 0,
+    },
+    rowName: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      color: c.textPrimary,
+    },
+    rowSubtitle: {
+      fontSize: fontSize.xs,
+      color: c.textSecondary,
+      marginTop: 2,
+    },
+    avatar: {
+      width: 40,
+      height: 40,
+      borderRadius: radii.full,
+      backgroundColor: c.accentMuted,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    avatarImage: {
+      width: 40,
+      height: 40,
+      borderRadius: radii.full,
+    },
+    avatarInitial: {
+      fontSize: fontSize.base,
+      fontWeight: fontWeight.bold,
+      color: c.accentStrong,
+    },
+    scoreBadge: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 4,
+      backgroundColor: c.goldMuted,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+      borderRadius: radii.full,
+    },
+    scoreText: {
+      fontSize: fontSize.xs,
+      fontWeight: fontWeight.semibold,
+      color: c.textPrimary,
+    },
+  }));
 
   const [users, setUsers] = useState<ProfileLite[]>([]);
   const [places, setPlaces] = useState<PlaceResult[]>([]);
@@ -146,9 +284,14 @@ export default function SearchScreen() {
       </View>
 
       {!isSearching ? (
-        <View style={styles.emptyState}>
-          <FloralBloom size={40} color={colors.borderStrong} />
-          <Text style={styles.emptyText}>Search for a bathroom, another user, or a street or landmark.</Text>
+        <View style={styles.emptyStateWrapper}>
+          <View style={styles.patternLayer} pointerEvents="none">
+            <AnimatedTileBackdrop opacity={0.05} />
+          </View>
+          <View style={styles.emptyState}>
+            <FlowerMark size={48} color={colors.border} sw={0.75} />
+            <Text style={styles.emptyText}>Search for a bathroom, another user, or a street or landmark.</Text>
+          </View>
         </View>
       ) : loading && !hasAnyResults ? (
         <View style={styles.loadingBlock}>
@@ -189,7 +332,7 @@ export default function SearchScreen() {
               users.map((u) => (
                 <Pressable
                   key={u.id}
-                  style={[styles.row, cardShadow("sm")]}
+                  style={[styles.row, cardShadow("sm", scheme)]}
                   onPress={() => handleSelectUser(u.id)}
                   accessibilityRole="button"
                   accessibilityLabel={`View ${u.display_name || u.username}'s profile`}
@@ -219,7 +362,7 @@ export default function SearchScreen() {
               bathrooms.map((b) => (
                 <Pressable
                   key={b.id}
-                  style={[styles.row, cardShadow("sm")]}
+                  style={[styles.row, cardShadow("sm", scheme)]}
                   onPress={() => handleSelectBathroom(b.id)}
                   accessibilityRole="button"
                   accessibilityLabel={`${b.name}, rated ${formatScore(b.overall_score)}`}
@@ -245,7 +388,7 @@ export default function SearchScreen() {
               places.map((place) => (
                 <Pressable
                   key={place.id}
-                  style={[styles.row, cardShadow("sm")]}
+                  style={[styles.row, cardShadow("sm", scheme)]}
                   onPress={() => handleSelectPlace(place)}
                   accessibilityRole="button"
                   accessibilityLabel={`${place.label}, ${place.sublabel}`}
@@ -277,127 +420,3 @@ export default function SearchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-  },
-  searchArea: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.md,
-    paddingHorizontal: spacing["2xl"],
-  },
-  emptyText: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-    textAlign: "center",
-    marginTop: spacing.xl,
-  },
-  errorText: {
-    fontSize: fontSize.sm,
-    color: colors.danger,
-    textAlign: "center",
-    marginTop: spacing.xl,
-  },
-  loadingBlock: {
-    alignItems: "center",
-    paddingTop: spacing["3xl"],
-  },
-  tabRow: {
-    flexDirection: "row",
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
-    gap: spacing.sm,
-  },
-  tab: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: spacing.sm,
-    borderRadius: radii.md,
-    backgroundColor: colors.surfaceMuted,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  tabActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  tabText: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-    color: colors.textSecondary,
-  },
-  tabTextActive: {
-    color: colors.textOnAccent,
-  },
-  resultsContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing["2xl"],
-    gap: spacing.sm,
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    padding: spacing.md,
-  },
-  rowMain: {
-    flex: 1,
-    minWidth: 0,
-  },
-  rowName: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    color: colors.textPrimary,
-  },
-  rowSubtitle: {
-    fontSize: fontSize.xs,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: radii.full,
-    backgroundColor: colors.accentMuted,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarImage: {
-    width: 40,
-    height: 40,
-    borderRadius: radii.full,
-  },
-  avatarInitial: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.bold,
-    color: colors.accentStrong,
-  },
-  scoreBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: colors.goldMuted,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radii.full,
-  },
-  scoreText: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-    color: colors.textPrimary,
-  },
-});

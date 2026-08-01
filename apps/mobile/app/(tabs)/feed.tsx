@@ -1,11 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Animated, Easing, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ArabesqueLoader } from "../../src/components/ArabesqueLoader";
+import { FlowerMark } from "../../src/components/FlowerMark";
 import { LavLogo } from "../../src/components/LavLogo";
 import { LevelBadge } from "../../src/components/LevelBadge";
 import { ReviewRepliesModal } from "../../src/components/bathroom/ReviewRepliesModal";
@@ -20,7 +22,8 @@ import { getLikeStatesForReviews, getReplyCountsForReviews, toggleReviewLike, ty
 import { useLiveLocation } from "../../src/hooks/useLiveLocation";
 import { useAuth } from "../../src/lib/auth";
 import { formatRelativeTime } from "../../src/lib/format";
-import { colors, fontSize, fontWeight, radii, spacing } from "../../src/theme";
+import { pinFill } from "../../src/lib/pinColor";
+import { fontSize, fontWeight, radii, spacing, useTheme, useThemedStyles } from "../../src/theme";
 
 type FeedTab = "friends" | "popular" | "trending";
 
@@ -50,8 +53,107 @@ export default function FeedScreen() {
   const router = useRouter();
   const { user, profile } = useAuth();
   const { status: locationStatus, coords: userLocation } = useLiveLocation();
+  const { colors } = useTheme();
+
+  const styles = useThemedStyles((c) => ({
+    container: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    header: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.md,
+    },
+    tabRow: {
+      position: "relative" as const,
+      flexDirection: "row" as const,
+      marginHorizontal: spacing.lg,
+      marginTop: spacing.md,
+      marginBottom: spacing.sm,
+    },
+    tabButton: {
+      flex: 1,
+      height: 34,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      paddingHorizontal: 4,
+    },
+    tabButtonText: {
+      fontSize: 10.5,
+      fontWeight: fontWeight.medium,
+      color: c.textSecondary,
+      letterSpacing: 1,
+      textTransform: "uppercase" as const,
+    },
+    tabButtonTextActive: {
+      color: c.accent,
+      fontWeight: fontWeight.semibold,
+    },
+    tabUnderline: {
+      position: "absolute" as const,
+      bottom: 0,
+      height: 2,
+      backgroundColor: c.accent,
+      borderRadius: 1,
+    },
+    tabRowDivider: {
+      height: 1,
+      backgroundColor: c.border,
+      marginHorizontal: spacing.lg,
+    },
+    centerContent: {
+      flex: 1,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      paddingHorizontal: spacing["2xl"],
+      gap: spacing.sm,
+    },
+    emptyText: {
+      fontSize: fontSize.sm,
+      color: c.textSecondary,
+      textAlign: "center" as const,
+    },
+    errorText: {
+      fontSize: fontSize.sm,
+      color: c.danger,
+      textAlign: "center" as const,
+    },
+    retryButton: {
+      backgroundColor: c.accent,
+      borderRadius: radii.lg,
+      paddingHorizontal: spacing.lg,
+      height: 40,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      marginTop: spacing.xs,
+    },
+    retryButtonText: {
+      color: c.textOnAccent,
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+    },
+    listContent: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing["2xl"],
+      gap: spacing.md,
+    },
+  }));
 
   const [activeTab, setActiveTab] = useState<FeedTab>("trending");
+  const tabIndex = TAB_KEYS.findIndex((t) => t.key === activeTab);
+  const underlineIndex = useRef(new Animated.Value(tabIndex)).current;
+  useEffect(() => {
+    Animated.timing(underlineIndex, {
+      toValue: tabIndex,
+      duration: 150,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: false, // animates `left` as a percentage string, which the native driver can't handle
+    }).start();
+  }, [tabIndex, underlineIndex]);
+  const underlineLeft = underlineIndex.interpolate({
+    inputRange: TAB_KEYS.map((_, i) => i),
+    outputRange: TAB_KEYS.map((_, i) => `${(i * 100) / TAB_KEYS.length}%`),
+  });
   const [reviews, setReviews] = useState<RecentReviewFeedItem[]>([]);
   const [likeStates, setLikeStates] = useState<Map<string, ReviewLikeState>>(new Map());
   const [replyCounts, setReplyCounts] = useState<Map<string, number>>(new Map());
@@ -166,21 +268,19 @@ export default function FeedScreen() {
 
       <View style={styles.tabRow}>
         {TAB_KEYS.map((tab) => (
-          <Pressable
-            key={tab.key}
-            style={[styles.tabButton, activeTab === tab.key && styles.tabButtonActive]}
-            onPress={() => setActiveTab(tab.key)}
-          >
+          <Pressable key={tab.key} style={styles.tabButton} onPress={() => setActiveTab(tab.key)}>
             <Text style={[styles.tabButtonText, activeTab === tab.key && styles.tabButtonTextActive]} numberOfLines={1}>
               {t(tab.labelKey)}
             </Text>
           </Pressable>
         ))}
+        <Animated.View style={[styles.tabUnderline, { left: underlineLeft, width: `${100 / TAB_KEYS.length}%` }]} />
       </View>
+      <View style={styles.tabRowDivider} />
 
       {loading ? (
         <View style={styles.centerContent}>
-          <ActivityIndicator color={colors.accent} />
+          <ArabesqueLoader size={32} color={colors.accent} framed />
         </View>
       ) : error ? (
         <View style={styles.centerContent}>
@@ -245,6 +345,116 @@ function FeedCard({
   onOpenReplies: () => void;
 }) {
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useThemedStyles((c) => ({
+    card: {
+      backgroundColor: c.surface,
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: c.border,
+      padding: spacing.md,
+      gap: spacing.sm,
+    },
+    headerRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.sm,
+    },
+    authorRow: {
+      flex: 1,
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.sm,
+      minWidth: 0,
+    },
+    avatar: {
+      width: 36,
+      height: 36,
+      borderRadius: radii.full,
+      backgroundColor: c.border,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    avatarImage: {
+      width: 36,
+      height: 36,
+      borderRadius: radii.full,
+    },
+    avatarInitial: {
+      fontSize: fontSize.base,
+      fontWeight: fontWeight.bold,
+      color: c.textPrimary,
+    },
+    headerText: {
+      flex: 1,
+      minWidth: 0,
+      gap: 1,
+    },
+    authorName: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.semibold,
+      color: c.textPrimary,
+    },
+    headerMetaRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.xs,
+    },
+    timeText: {
+      fontSize: fontSize.xs,
+      color: c.textMuted,
+    },
+    bathroomRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      justifyContent: "space-between" as const,
+      gap: spacing.sm,
+    },
+    bathroomName: {
+      flex: 1,
+      fontSize: fontSize.md,
+      fontWeight: fontWeight.bold,
+      color: c.textPrimary,
+    },
+    overallBadge: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 5,
+    },
+    overallBadgeText: {
+      fontSize: fontSize.sm,
+      fontWeight: fontWeight.bold,
+    },
+    venueText: {
+      fontSize: fontSize.sm,
+      color: c.textSecondary,
+      marginTop: -4,
+    },
+    subScoreText: {
+      fontSize: fontSize.xs,
+      color: c.textSecondary,
+    },
+    reviewText: {
+      fontSize: fontSize.sm,
+      color: c.textSecondary,
+    },
+    engagementRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: spacing.lg,
+      marginTop: 2,
+    },
+    engagementButton: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 4,
+    },
+    engagementText: {
+      fontSize: fontSize.xs,
+      fontWeight: fontWeight.medium,
+      color: c.textMuted,
+    },
+  }));
   const subScores = SUB_SCORE_FIELDS.map(({ key, icon, label }) => {
     const value = review[key];
     return value != null ? { icon, label, value } : null;
@@ -287,8 +497,8 @@ function FeedCard({
           {review.bathroom?.name ?? "a bathroom"}
         </Text>
         <View style={styles.overallBadge}>
-          <Ionicons name="star" size={13} color={colors.gold} />
-          <Text style={styles.overallBadgeText}>{review.overall_rating.toFixed(1)}</Text>
+          <FlowerMark size={13} color={pinFill(review.overall_rating)} filled />
+          <Text style={[styles.overallBadgeText, { color: pinFill(review.overall_rating) }]}>{review.overall_rating.toFixed(1)}</Text>
         </View>
       </View>
       {review.bathroom?.venue_name ? <Text style={styles.venueText}>{review.bathroom.venue_name}</Text> : null}
@@ -337,193 +547,3 @@ function FeedCard({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-  },
-  tabRow: {
-    flexDirection: "row",
-    backgroundColor: colors.surface,
-    borderRadius: radii.full,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 3,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  tabButton: {
-    flex: 1,
-    height: 34,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radii.full,
-    paddingHorizontal: 4,
-  },
-  tabButtonActive: {
-    backgroundColor: colors.accent,
-  },
-  tabButtonText: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.medium,
-    color: colors.textSecondary,
-  },
-  tabButtonTextActive: {
-    color: colors.textOnAccent,
-    fontWeight: fontWeight.bold,
-  },
-  centerContent: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: spacing["2xl"],
-    gap: spacing.sm,
-  },
-  emptyText: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-    textAlign: "center",
-  },
-  errorText: {
-    fontSize: fontSize.sm,
-    color: colors.danger,
-    textAlign: "center",
-  },
-  retryButton: {
-    backgroundColor: colors.accent,
-    borderRadius: radii.lg,
-    paddingHorizontal: spacing.lg,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: spacing.xs,
-  },
-  retryButtonText: {
-    color: "#0B0C0E",
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-  },
-  listContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing["2xl"],
-    gap: spacing.md,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  authorRow: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    minWidth: 0,
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: radii.full,
-    backgroundColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarImage: {
-    width: 36,
-    height: 36,
-    borderRadius: radii.full,
-  },
-  avatarInitial: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.bold,
-    color: colors.textPrimary,
-  },
-  headerText: {
-    flex: 1,
-    minWidth: 0,
-    gap: 1,
-  },
-  authorName: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    color: colors.textPrimary,
-  },
-  headerMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-  },
-  timeText: {
-    fontSize: fontSize.xs,
-    color: colors.textMuted,
-  },
-  bathroomRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-  },
-  bathroomName: {
-    flex: 1,
-    fontSize: fontSize.md,
-    fontWeight: fontWeight.bold,
-    color: colors.textPrimary,
-  },
-  overallBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: colors.goldMuted,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radii.full,
-  },
-  overallBadgeText: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.bold,
-    color: colors.gold,
-  },
-  venueText: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-    marginTop: -4,
-  },
-  subScoreText: {
-    fontSize: fontSize.xs,
-    color: colors.textSecondary,
-  },
-  reviewText: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-    fontStyle: "italic",
-  },
-  engagementRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.lg,
-    marginTop: 2,
-  },
-  engagementButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  engagementText: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.medium,
-    color: colors.textMuted,
-  },
-});
