@@ -80,19 +80,24 @@ export async function getBathroomsInBounds(bounds: MapBounds): Promise<BathroomP
 
   // A stable ORDER BY is required here, not optional - without one, Postgres
   // is free to return a *different* arbitrary 300-row subset of the matching
-  // bathrooms on every identical call (query plan/worker/cache-state
-  // dependent, confirmed to actually vary run-to-run against this table).
-  // Since a pan re-triggers this fetch, an unordered query looked exactly
-  // like "pins randomly reshuffling/moving" - the map was reclustering a
-  // different random sample of points every time, not just repositioning
-  // markers. Ordering by latitude/longitude keeps the original intent (both
-  // already indexed, so this is still a sorted index range scan rather than
-  // a full scan-and-sort of every matching row) while making the same
-  // bounding box always return the same rows in the same order.
-  const { data, error } = await query
-    .order("latitude", { ascending: true })
-    .order("longitude", { ascending: true })
-    .limit(BOUNDS_QUERY_LIMIT);
+  // bathrooms on every identical call, which looked like pins reshuffling on
+  // every pan. The first fix for that (ordering by latitude, then longitude)
+  // was itself wrong: for any viewport with more than LIMIT matches, "order
+  // by latitude" returns only the southernmost slice of the bbox, silently
+  // dropping everything further north - confirmed directly against a dense
+  // Taipei viewport (lat 24.90-25.20 full range) where that ordering only
+  // ever returned rows from 24.90-25.01, missing the entire northern
+  // two-thirds. Panning across whatever latitude the truncation happened to
+  // land on made whole clusters of pins pop in/out of existence - the
+  // reported "pins spaz all over the map".
+  //
+  // `id` is a random UUID (gen_random_uuid(), 0002_tables.sql) with no
+  // spatial correlation, so ordering by it instead gives a sample spread
+  // roughly evenly across the *whole* matching set - confirmed the same
+  // Taipei query now covers 24.91-25.19, essentially the full range - while
+  // staying just as deterministic (same bbox always returns the same rows)
+  // and at least as cheap (primary key index scan).
+  const { data, error } = await query.order("id", { ascending: true }).limit(BOUNDS_QUERY_LIMIT);
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as BathroomPublic[];
 }
