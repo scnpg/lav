@@ -307,22 +307,36 @@ export default function MapScreen() {
   // `bathrooms` (and therefore search/filter/clustering, all of which just
   // read this same state) only ever covers what's on screen right now, not
   // the whole database.
+  // Guards against out-of-order responses: nothing here cancels the actual
+  // network request, but if a *newer* fetch has since started by the time an
+  // older one resolves, its result is stale and must not overwrite state a
+  // more recent viewport already produced. Without this, a slow response for
+  // a viewport the user has already panned away from could land after a
+  // faster response for the current one and silently yank every pin back to
+  // where they used to be - which reads exactly like "pins don't stay in
+  // place" even though each individual fetch is internally correct.
+  const boundsRequestIdRef = useRef(0);
+
   const loadBathroomsInBounds = useCallback(async (bounds: MapBounds) => {
+    const requestId = ++boundsRequestIdRef.current;
     setLoading(true);
     setLoadError(null);
     try {
       const inView = await getBathroomsInBounds(bounds);
+      if (requestId !== boundsRequestIdRef.current) return;
       const withDistance = inView.map((b) => ({ ...b, distance_meters: 0 }));
       setBathrooms(withDistance);
       setShowingCachedBathrooms(false);
       saveCachedBathrooms(withDistance, bounds);
     } catch (err) {
+      if (requestId !== boundsRequestIdRef.current) return;
       // Poor/no connectivity: fall back to whatever this viewport last
       // successfully fetched (persisted to AsyncStorage, so it survives an
       // app restart too) rather than leaving the map blank. Only overrides
       // pins already on screen from an earlier successful fetch this
       // session - those stay put either way since nothing here clears them.
       const cached = await loadCachedBathrooms();
+      if (requestId !== boundsRequestIdRef.current) return;
       if (cached && cached.bathrooms.length > 0) {
         setBathrooms(cached.bathrooms);
         setShowingCachedBathrooms(true);
@@ -330,7 +344,7 @@ export default function MapScreen() {
         setLoadError(err instanceof Error ? err.message : "Couldn't load bathrooms.");
       }
     } finally {
-      setLoading(false);
+      if (requestId === boundsRequestIdRef.current) setLoading(false);
     }
   }, []);
 

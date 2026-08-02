@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AnimatedTileBackdrop } from "../../src/components/AnimatedTileBackdrop";
 import { ArabesqueLoader } from "../../src/components/ArabesqueLoader";
 import { LavLogo } from "../../src/components/LavLogo";
+import { PasswordField } from "../../src/components/PasswordField";
 import { useAuth } from "../../src/lib/auth";
 import { fontSize, fontWeight, lineHeight, radii, serif, spacing, useTheme, useThemedStyles } from "../../src/theme";
 
@@ -132,24 +133,20 @@ export default function ResetPasswordScreen() {
 
         <View style={styles.form}>
           <Text style={styles.fieldLabel}>New password</Text>
-          <TextInput
+          <PasswordField
             value={password}
             onChangeText={setPassword}
             placeholder="New password"
-            placeholderTextColor={colors.textMuted}
             style={styles.input}
-            secureTextEntry
             textContentType="newPassword"
             returnKeyType="next"
           />
           <Text style={styles.fieldLabel}>Confirm new password</Text>
-          <TextInput
+          <PasswordField
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             placeholder="Confirm new password"
-            placeholderTextColor={colors.textMuted}
             style={styles.input}
-            secureTextEntry
             textContentType="newPassword"
             returnKeyType="go"
             onSubmitEditing={handleSubmit}
