@@ -369,6 +369,10 @@ export function MapView({
   const markersRef = useRef<globalThis.Map<string, Marker>>(new globalThis.Map());
   const clusterIndexRef = useRef<Supercluster<ClusterPointProps, ClusterAggProps> | null>(null);
   const userLocationMarkerRef = useRef<Marker | null>(null);
+  // The rounded zoom level the currently loaded `bathrooms`/clusterIndexRef
+  // was fetched/clustered for - see the moveend handler below for why this
+  // exists.
+  const lastRenderedZoomRef = useRef<number | null>(null);
   const onSelectPinRef = useRef(onSelectPin);
   const onPressBackgroundRef = useRef(onPressBackground);
   const onSelectGroupRef = useRef(onSelectGroup);
@@ -571,7 +575,25 @@ export function MapView({
       map.addControl(new NavigationControl({ showCompass: false }), "top-right");
       map.on("click", () => onPressBackgroundRef.current?.());
       map.on("moveend", () => {
-        renderClusters();
+        // Bug fix: zooming in/out changes both the query bbox AND the
+        // clustering resolution, so the currently loaded sample (fetched
+        // for the PREVIOUS zoom's bbox - see getBathroomsInBounds's
+        // BOUNDS_QUERY_LIMIT cap) is no longer a trustworthy representation
+        // of what's actually in view at the new zoom. Re-clustering it
+        // anyway produced a real, visible bug: a flash of wrong/incomplete
+        // pins at the new zoom (built from old-zoom data) immediately
+        // followed by a second, correct re-render once the debounced
+        // refetch's fresh data landed a few hundred ms later - which reads
+        // exactly like "pins moving around strangely" on every zoom. A pure
+        // pan (zoom unchanged) doesn't have this problem - the loaded
+        // sample is still spatially valid for a modest pan - so only that
+        // case re-clusters immediately; a zoom change skips straight to
+        // reportRegion() and waits for the `[bathrooms]` effect below to
+        // render once, with correct data, after the refetch resolves.
+        const currentMap = mapRef.current;
+        if (currentMap && Math.round(currentMap.getZoom()) === lastRenderedZoomRef.current) {
+          renderClusters();
+        }
         reportRegion();
       });
       // Liberty's base style isn't ours to edit at the source - recolor it
@@ -579,6 +601,7 @@ export function MapView({
       map.once("load", () => {
         applyLavMapTheme(map!);
         renderClusters();
+        lastRenderedZoomRef.current = Math.round(map!.getZoom());
         reportRegion();
       });
       // Bug fix: reportRegion() was previously only called from the "load"
@@ -700,6 +723,10 @@ export function MapView({
     // least one tested environment, never actually reported "loaded" at
     // all, which left the map perpetually pin-less even with correct data.
     renderClusters();
+    // Marks this data as valid for the map's current zoom - see the
+    // moveend handler's comment for why this gates whether a later pan/zoom
+    // re-clusters immediately or waits for a fresh fetch.
+    lastRenderedZoomRef.current = Math.round(map.getZoom());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bathrooms]);
 
