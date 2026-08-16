@@ -25,7 +25,7 @@ export const BATHROOM_PUBLIC_COLUMNS = `
   gender_category, toilet_type, amenities, tags, open_hours,
   cleanliness_score, safety_score, privacy_score, smell_score, prestige_score, overall_score,
   review_count, photo_count, submitted_by, verified_by, verified_at, last_verified_at,
-  name_verified, name_verified_at,
+  name_verified, name_verified_at, venue_id,
   created_at, updated_at
 `;
 
@@ -100,6 +100,25 @@ export async function getBathroomsInBounds(bounds: MapBounds): Promise<BathroomP
   const { data, error } = await query.order("id", { ascending: true }).limit(BOUNDS_QUERY_LIMIT);
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as BathroomPublic[];
+}
+
+/**
+ * Every verified restroom belonging to one venue (0042_venues.sql /
+ * 0043_bathrooms_venue_id.sql) - fetched on demand when a multi-restroom
+ * venue pin is tapped on the map (LocationGroupSheet's data source), rather
+ * than relying on whatever happens to already be loaded in the map's own
+ * windowed getBathroomsInBounds result, which isn't guaranteed to include
+ * every member of a given venue.
+ */
+export async function getBathroomsByVenueId(venueId: string): Promise<BathroomNearby[]> {
+  const { data, error } = await supabase
+    .from("bathrooms")
+    .select(BATHROOM_PUBLIC_COLUMNS)
+    .eq("venue_id", venueId)
+    .eq("status", "verified")
+    .order("floor", { ascending: true, nullsFirst: false });
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as unknown as BathroomPublic[]).map((b) => ({ ...b, distance_meters: 0 }));
 }
 
 /**

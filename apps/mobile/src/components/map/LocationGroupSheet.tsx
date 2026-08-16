@@ -2,31 +2,25 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { ACCESS_TYPE_LABELS } from "../../constants/enumLabels";
+import { ArabesqueLoader } from "../ArabesqueLoader";
 import { formatScore } from "../../lib/format";
 import { cardShadow, colors, fontSize, fontWeight, radii, spacing } from "../../theme";
 import type { BathroomNearby } from "../../types/database";
 
 interface LocationGroupSheetProps {
+  venueName: string | null;
   bathrooms: BathroomNearby[];
+  loading?: boolean;
   onSelectBathroom: (id: string) => void;
   onClose: () => void;
 }
 
-// Micro-grouping (Phase 4): opened when a map pin represents more than one
-// bathroom at the exact same coordinate (e.g. every stall inside one MRT
-// station or mall). A plain modal/backdrop rather than a gesture-driven
-// bottom sheet library - no new native dependency, and it matches the
-// existing BathroomBottomCard's "simple overlay card" pattern used
-// elsewhere on this screen.
-export function LocationGroupSheet({ bathrooms, onSelectBathroom, onClose }: LocationGroupSheetProps) {
-  // Most groups share one venue (the whole point of grouping by exact
-  // coordinate) - lead with it when every row agrees, instead of repeating
-  // it per-row.
-  const sharedVenueName =
-    bathrooms.length > 0 && bathrooms.every((b) => b.venue_name === bathrooms[0]!.venue_name)
-      ? bathrooms[0]!.venue_name
-      : null;
-
+// Opened when a tapped venue pin has more than one restroom (restroom_count
+// > 1, e.g. every floor inside one mall - see 0042_venues.sql). A plain
+// modal/backdrop rather than a gesture-driven bottom sheet library - no new
+// native dependency, and it matches the existing BathroomBottomCard's
+// "simple overlay card" pattern used elsewhere on this screen.
+export function LocationGroupSheet({ venueName, bathrooms, loading, onSelectBathroom, onClose }: LocationGroupSheetProps) {
   return (
     <View style={styles.overlay}>
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" accessibilityRole="button" />
@@ -34,7 +28,7 @@ export function LocationGroupSheet({ bathrooms, onSelectBathroom, onClose }: Loc
       <View style={[styles.sheet, cardShadow("md")]}>
         <View style={styles.header}>
           <View style={styles.headerText}>
-            <Text style={styles.title}>{sharedVenueName ?? "Multiple bathrooms here"}</Text>
+            <Text style={styles.title}>{venueName ?? "Multiple bathrooms here"}</Text>
             <Text style={styles.subtitle}>
               {bathrooms.length} bathroom{bathrooms.length === 1 ? "" : "s"} at this location
             </Text>
@@ -44,6 +38,11 @@ export function LocationGroupSheet({ bathrooms, onSelectBathroom, onClose }: Loc
           </Pressable>
         </View>
 
+        {loading ? (
+          <View style={styles.loadingRow}>
+            <ArabesqueLoader size={20} color={colors.accentStrong} />
+          </View>
+        ) : (
         <ScrollView style={styles.list} keyboardShouldPersistTaps="handled">
           {bathrooms.map((bathroom) => (
             <Pressable
@@ -75,6 +74,7 @@ export function LocationGroupSheet({ bathrooms, onSelectBathroom, onClose }: Loc
             </Pressable>
           ))}
         </ScrollView>
+        )}
       </View>
     </View>
   );
@@ -137,6 +137,10 @@ const styles = StyleSheet.create({
   },
   list: {
     flexGrow: 0,
+  },
+  loadingRow: {
+    paddingVertical: spacing.xl,
+    alignItems: "center",
   },
   row: {
     flexDirection: "row",

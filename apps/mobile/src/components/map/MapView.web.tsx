@@ -7,9 +7,15 @@ import { DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, IS_USING_FALLBACK_MAP_STYLE, MAP_
 import { applyLavMapTheme } from "../../lib/mapTheme";
 import { PIN, pinFill } from "../../lib/pinColor";
 import { colors, fontSize, fontWeight, radii } from "../../theme";
-import type { BathroomNearby } from "../../types/database";
+import type { BathroomNearby, VenueWithStats } from "../../types/database";
 
 interface MapViewProps {
+  // The map's own pin-rendering data source - one point per physical
+  // building (see 0042_venues.sql/get_venues_in_bounds), already
+  // deduplicated server-side. `bathrooms` is kept separately, purely for
+  // focusRequest/fitBoundsRequest coordinate lookups (search selection,
+  // filter-driven refit) - it is NOT what pins are drawn from anymore.
+  venues: VenueWithStats[];
   bathrooms: BathroomNearby[];
   selectedId: string | null;
   onSelectPin: (id: string) => void;
@@ -31,11 +37,11 @@ interface MapViewProps {
   // search box after a selection. Keeping this decoupled from "bathrooms
   // changed" is what stops a stray refit from cancelling a focusRequest flyTo.
   fitBoundsRequest?: number | null;
-  // Phase 4 micro-grouping: called instead of onSelectPin when a tapped pin
-  // represents more than one bathroom at the exact same coordinate (e.g.
-  // every stall inside one MRT station). The parent opens a sheet/modal
-  // listing them.
-  onSelectGroup?: (bathroomIds: string[]) => void;
+  // Called instead of onSelectPin when a tapped venue pin has more than one
+  // restroom (restroom_count > 1, e.g. every floor inside one mall) - the
+  // parent fetches that venue's restrooms (getBathroomsByVenueId) and opens
+  // a sheet/modal listing them.
+  onSelectVenue?: (venueId: string) => void;
   // Called once the map settles after any pan/zoom (and once for the
   // initial viewport) with the current visible bounds. The dataset is too
   // large to fetch in full (350k+ imported bathrooms), so the parent uses
@@ -52,14 +58,20 @@ interface MapViewProps {
   flyToRequest?: { latitude: number; longitude: number; token: number } | null;
 }
 
-// One point per exact coordinate, not one per bathroom - see the grouping
-// step in the `[bathrooms]` effect below. bathroomIds.length > 1 means this
-// point represents Phase 4's "micro-group" (identical-coordinate) case.
-// avgScore is the mean of only the RATED members (review_count > 0) at that
-// coordinate - undefined when none are rated yet (an unrated pin).
+// One point per venue (building) - venues are already deduplicated
+// server-side (get_venues_in_bounds), so no client-side coordinate grouping
+// is needed the way the old per-bathroom rendering required. restroomCount >
+// 1 means this venue has more than one restroom (e.g. every floor inside one
+// mall) and renders as a group badge instead of a plain score pin. score is
+// the venue's max_cleanliness - undefined when none of its restrooms are
+// rated yet (an unrated pin). singleBathroomId mirrors
+// VenueWithStats.single_bathroom_id - the restroom to navigate straight to
+// when restroomCount === 1.
 interface ClusterPointProps {
-  bathroomIds: string[];
-  avgScore?: number;
+  venueId: string;
+  restroomCount: number;
+  singleBathroomId: string | null;
+  score?: number;
 }
 
 // What supercluster aggregates a leaf's properties into when several points
@@ -285,6 +297,7 @@ function isClusterFeature(
 // for the native (iOS/Android) counterpart, which still renders the mock
 // map layout until real native MapLibre is wired up.
 export function MapView({
+  venues,
   bathrooms,
   selectedId,
   onSelectPin,
@@ -293,7 +306,7 @@ export function MapView({
   userLocation,
   locateMeToken,
   fitBoundsRequest,
-  onSelectGroup,
+  onSelectVenue,
   onRegionChangeComplete,
   flyToRequest,
 }: MapViewProps) {
@@ -302,17 +315,17 @@ export function MapView({
   const markersRef = useRef<globalThis.Map<string, Marker>>(new globalThis.Map());
   const clusterIndexRef = useRef<Supercluster<ClusterPointProps, ClusterAggProps> | null>(null);
   const userLocationMarkerRef = useRef<Marker | null>(null);
-  // The rounded zoom level the currently loaded `bathrooms`/clusterIndexRef
-  // was fetched/clustered for - see the moveend handler below for why this
+  // The rounded zoom level the currently loaded `venues`/clusterIndexRef was
+  // fetched/clustered for - see the moveend handler below for why this
   // exists.
   const lastRenderedZoomRef = useRef<number | null>(null);
   const onSelectPinRef = useRef(onSelectPin);
   const onPressBackgroundRef = useRef(onPressBackground);
-  const onSelectGroupRef = useRef(onSelectGroup);
+  const onSelectVenueRef = useRef(onSelectVenue);
   const onRegionChangeCompleteRef = useRef(onRegionChangeComplete);
   onSelectPinRef.current = onSelectPin;
   onPressBackgroundRef.current = onPressBackground;
-  onSelectGroupRef.current = onSelectGroup;
+  onSelectVenueRef.current = onSelectVenue;
   onRegionChangeCompleteRef.current = onRegionChangeComplete;
 
   // Reads the current viewport and reports it upward - called once the
@@ -376,24 +389,22 @@ export function MapView({
         } else {
           marker.setLngLat([longitude, latitude]);
         }
-      } else if (feature.properties.bathroomIds.length > 1) {
-        // Phase 4 micro-group: multiple bathrooms at the exact same
-        // coordinate (e.g. every stall in one MRT station), rendered as one
-        // pin - the same SmallCluster/LargeCluster visuals as a spatial
-        // cluster (createClusterElement), so "several bathrooms stacked"
-        // reads consistently regardless of why they're grouped. Key on the
-        // sorted id list so it's stable across re-renders regardless of the
-        // source array's order.
-        const bathroomIds = feature.properties.bathroomIds;
-        const key = `group:${[...bathroomIds].sort().join(",")}`;
+      } else if (feature.properties.restroomCount > 1) {
+        // A multi-restroom venue (e.g. every floor inside one mall) renders
+        // as a group badge, same visual as the old exact-coordinate
+        // micro-group case - "several restrooms stacked at one spot" reads
+        // differently from either a single pin or a spatial cluster. Keyed
+        // on venueId, stable across re-renders.
+        const { venueId, restroomCount, score } = feature.properties;
+        const key = `venue-group:${venueId}`;
         seenKeys.add(key);
 
         let marker = markersRef.current.get(key);
         if (!marker) {
-          const el = createGroupPinElement(bathroomIds.length, feature.properties.avgScore);
+          const el = createGroupPinElement(restroomCount, score);
           el.addEventListener("click", (event) => {
             event.stopPropagation();
-            onSelectGroupRef.current?.(bathroomIds);
+            onSelectVenueRef.current?.(venueId);
           });
           marker = new Marker({ element: el }).setLngLat([longitude, latitude]).addTo(map);
           markersRef.current.set(key, marker);
@@ -401,7 +412,7 @@ export function MapView({
           marker.setLngLat([longitude, latitude]);
         }
       } else {
-        const bathroomId = feature.properties.bathroomIds[0]!;
+        const bathroomId = feature.properties.singleBathroomId!;
         const key = bathroomId;
         seenKeys.add(key);
 
@@ -418,7 +429,7 @@ export function MapView({
           marker.setLngLat([longitude, latitude]);
         }
         const el = marker.getElement() as HTMLDivElement;
-        updatePinElement(el, feature.properties.avgScore);
+        updatePinElement(el, feature.properties.score);
         applySelectedStyle(el, bathroomId === selectedId);
       }
     }
@@ -510,9 +521,9 @@ export function MapView({
       map.on("moveend", () => {
         // Bug fix: zooming in/out changes both the query bbox AND the
         // clustering resolution, so the currently loaded sample (fetched
-        // for the PREVIOUS zoom's bbox - see getBathroomsInBounds's
-        // BOUNDS_QUERY_LIMIT cap) is no longer a trustworthy representation
-        // of what's actually in view at the new zoom. Re-clustering it
+        // for the PREVIOUS zoom's bbox - see getVenuesInBounds's row cap) is
+        // no longer a trustworthy representation of what's actually in view
+        // at the new zoom. Re-clustering it
         // anyway produced a real, visible bug: a flash of wrong/incomplete
         // pins at the new zoom (built from old-zoom data) immediately
         // followed by a second, correct re-render once the debounced
@@ -594,32 +605,17 @@ export function MapView({
     const map = mapRef.current;
     if (!map) return;
 
-    // Phase 4 micro-grouping happens here, before supercluster ever sees the
-    // data: bathrooms sharing the exact same lat/lng (e.g. every stall in
-    // one MRT station) collapse into a single point up front, rather than
-    // relying on supercluster's proximity radius to keep them together (that
-    // radius is tuned for "nearby but distinct locations", a different
-    // concept - it would either merge close-but-separate venues into one pin
-    // or need constant retuning as data density changes). Every OTHER point
-    // stays a normal individual location for supercluster's own proximity
-    // clustering (Phase 4 macro-grouping) to handle at its default settings.
-    const locationGroups = new globalThis.Map<string, BathroomNearby[]>();
-    for (const b of bathrooms) {
-      const key = `${b.latitude.toFixed(6)},${b.longitude.toFixed(6)}`;
-      const group = locationGroups.get(key);
-      if (group) group.push(b);
-      else locationGroups.set(key, [b]);
-    }
-
-    // avgScore is the mean of only the RATED members at this coordinate
-    // (review_count > 0) - undefined (unrated) when none of them are, so an
-    // unrated group never gets dragged into a false low/high score color.
+    // Venues are already deduplicated server-side (get_venues_in_bounds) -
+    // one point per building, no client-side coordinate grouping needed
+    // (unlike the old per-bathroom rendering). Supercluster still handles
+    // its own proximity clustering (nearby-but-distinct venues) at its
+    // default settings.
     const index = new Supercluster<ClusterPointProps, ClusterAggProps>({
       radius: 50,
       maxZoom: 16,
       map: (props) => ({
-        scoreSum: props.avgScore ?? 0,
-        ratedCount: props.avgScore !== undefined ? 1 : 0,
+        scoreSum: props.score ?? 0,
+        ratedCount: props.score !== undefined ? 1 : 0,
       }),
       reduce: (accumulated, props) => {
         accumulated.scoreSum += props.scoreSum;
@@ -627,22 +623,23 @@ export function MapView({
       },
     });
     index.load(
-      [...locationGroups.values()].map((group) => {
-        const rated = group.filter((b) => b.review_count > 0);
-        const avgScore = rated.length > 0 ? rated.reduce((sum, b) => sum + b.overall_score, 0) / rated.length : undefined;
-        return {
-          type: "Feature",
-          properties: { bathroomIds: group.map((b) => b.id), avgScore },
-          geometry: { type: "Point", coordinates: [group[0]!.longitude, group[0]!.latitude] },
-        };
-      })
+      venues.map((venue) => ({
+        type: "Feature",
+        properties: {
+          venueId: venue.id,
+          restroomCount: venue.restroom_count,
+          singleBathroomId: venue.single_bathroom_id,
+          score: venue.max_cleanliness ?? undefined,
+        },
+        geometry: { type: "Point", coordinates: [venue.longitude, venue.latitude] },
+      }))
     );
     clusterIndexRef.current = index;
 
     // Index rebuild only re-renders the existing view at the existing
     // camera position - it does NOT fit bounds. Camera moves are driven
     // exclusively by fitBoundsRequest/focusRequest/locateMeToken below, so
-    // an unrelated bathrooms-array change (e.g. search text getting cleared
+    // an unrelated venues-array change (e.g. search text getting cleared
     // after selecting a result) can't yank the camera out from under an
     // in-flight flyTo. See fitBoundsRequest prop comment.
     //
@@ -650,7 +647,7 @@ export function MapView({
     // only reads map.getBounds()/getZoom() and adds DOM-based Marker
     // elements - none of that needs the underlying style/tiles to have
     // finished painting, same reasoning as reportRegion() above. Gating pin
-    // placement on "has the basemap image finished loading" meant bathrooms
+    // placement on "has the basemap image finished loading" meant venues
     // could arrive from the fetch (now firing immediately, see above) yet
     // still never appear as pins if the style took a while - or, on at
     // least one tested environment, never actually reported "loaded" at
@@ -661,7 +658,7 @@ export function MapView({
     // re-clusters immediately or waits for a fresh fetch.
     lastRenderedZoomRef.current = Math.round(map.getZoom());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bathrooms]);
+  }, [venues]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -674,7 +671,7 @@ export function MapView({
 
   useEffect(() => {
     for (const [key, marker] of markersRef.current) {
-      if (key.startsWith("cluster:") || key.startsWith("group:")) continue;
+      if (key.startsWith("cluster:") || key.startsWith("venue-group:")) continue;
       applySelectedStyle(marker.getElement() as HTMLDivElement, key === selectedId);
     }
   }, [selectedId]);

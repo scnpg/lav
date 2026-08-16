@@ -82,8 +82,44 @@ export interface BathroomPublic {
   /** Crowd name-consensus signal (0034_postgis_clustering_and_name_verification.sql) - set by process_bathroom_verification(), never by admin action. Distinct from `status`: this says "5+ people agree on this name", not "an admin confirmed this listing". */
   name_verified: boolean;
   name_verified_at: string | null;
+  /** The building this restroom is inside (0043_bathrooms_venue_id.sql) - assigned automatically on insert, never directly editable (guard_bathroom_update reverts it for non-admin/non-system writers). Null only for rows inserted before 0043 that haven't been backfilled yet. */
+  venue_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** A physical building (mall, MRT station, convenience store, ...) that can contain one or more restrooms - see 0042_venues.sql. */
+export interface Restroom {
+  id: string;
+  venue_id: string | null;
+  name: string;
+}
+
+export interface Venue {
+  id: string;
+  name: string;
+  address: string | null;
+  city: string | null;
+  region: string | null;
+  country: string | null;
+  venue_type: string | null;
+  latitude: number;
+  longitude: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** One row per venue, as returned by get_venues_in_bounds() (0044) - the map's pin-per-venue data source. */
+export interface VenueWithStats {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  restroom_count: number;
+  /** Highest cleanliness_score among the venue's RATED restrooms (review_count > 0) - null if none are rated yet. */
+  max_cleanliness: number | null;
+  /** The venue's one restroom id when restroom_count === 1 (the ~98.7% common case) - lets the map skip straight to that restroom's detail screen without a getBathroomsByVenueId round-trip. Null whenever restroom_count > 1. */
+  single_bathroom_id: string | null;
 }
 
 /** Admin-only fields, fetched separately via admin_get_bathroom_private_fields(). */
@@ -499,6 +535,10 @@ export interface Database {
         Pick<BathroomStatusCheck, "bathroom_id" | "user_id" | "is_open" | "is_clean" | "has_paper"> &
           Partial<Omit<BathroomStatusCheck, "bathroom_id" | "user_id" | "is_open" | "is_clean" | "has_paper">>
       >;
+      venues: TableDef<
+        Venue,
+        Pick<Venue, "name" | "latitude" | "longitude"> & Partial<Omit<Venue, "name" | "latitude" | "longitude">>
+      >;
     };
     Views: Record<string, never>;
     Functions: {
@@ -563,6 +603,14 @@ export interface Database {
       get_random_comparison_candidate: {
         Args: { p_exclude_bathroom_id: string };
         Returns: string | null;
+      };
+      get_venues_in_bounds: {
+        Args: { min_lat: number; max_lat: number; min_lng: number; max_lng: number };
+        Returns: VenueWithStats[];
+      };
+      find_or_create_venue: {
+        Args: { p_lat: number; p_lng: number; p_name: string };
+        Returns: string;
       };
     };
   };

@@ -16,17 +16,18 @@ import { RateBathroomModal } from "../../src/components/bathroom/RateBathroomMod
 import { ArabesqueLoader } from "../../src/components/ArabesqueLoader";
 import { LavLogo } from "../../src/components/LavLogo";
 import { PressableScale } from "../../src/components/PressableScale";
-import { getBathroomById, getBathroomsInBounds, type MapBounds } from "../../src/features/bathrooms/api";
+import { getBathroomById, getBathroomsByVenueId, getBathroomsInBounds, type MapBounds } from "../../src/features/bathrooms/api";
 import { getBathroomReviewStats } from "../../src/features/bathrooms/ratingsApi";
 import { searchBathrooms } from "../../src/features/bathrooms/search";
 import { getBathroomsRecentlyClosed } from "../../src/features/bathrooms/statusApi";
 import { searchPlaces, type PlaceResult } from "../../src/features/places/search";
+import { getVenuesInBounds } from "../../src/features/venues/api";
 import { useLiveLocation } from "../../src/hooks/useLiveLocation";
 import { useAuth } from "../../src/lib/auth";
 import { loadCachedBathrooms, saveCachedBathrooms } from "../../src/lib/bathroomCache";
 import { haversineDistanceMeters } from "../../src/lib/geo";
 import { cardShadow, fontSize, fontWeight, radii, spacing, useTheme, useThemedStyles } from "../../src/theme";
-import type { BathroomNearby, BathroomPublic, BathroomReview } from "../../src/types/database";
+import type { BathroomNearby, BathroomPublic, BathroomReview, VenueWithStats } from "../../src/types/database";
 
 
 // Roughly "wider than a city" - 1 degree of latitude is ~111km/69mi
@@ -132,6 +133,11 @@ export default function MapScreen() {
     [t]
   );
   const [bathrooms, setBathrooms] = useState<BathroomNearby[]>([]);
+  // The map's own pin-rendering data source (one row per building, see
+  // 0042_venues.sql) - fetched in parallel with `bathrooms` for the same
+  // viewport, but never filtered/searched the way `bathrooms` is. See
+  // MapView's `venues` prop comment.
+  const [venues, setVenues] = useState<VenueWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showingCachedBathrooms, setShowingCachedBathrooms] = useState(false);
@@ -142,10 +148,12 @@ export default function MapScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusRequest, setFocusRequest] = useState<{ id: string; token: number } | null>(null);
   const [locateMeToken, setLocateMeToken] = useState<number | null>(null);
-  // Phase 4 micro-grouping: set when a pin representing multiple bathrooms
-  // at one exact coordinate is tapped. Takes over the bottom-overlay slot
+  // Set when a multi-restroom venue pin (restroom_count > 1, e.g. every
+  // floor inside one mall) is tapped. Takes over the bottom-overlay slot
   // instead of BathroomBottomCard while open - see the render below.
-  const [groupSheetIds, setGroupSheetIds] = useState<string[] | null>(null);
+  const [groupSheetVenueId, setGroupSheetVenueId] = useState<string | null>(null);
+  const [groupSheetBathrooms, setGroupSheetBathrooms] = useState<BathroomNearby[]>([]);
+  const [groupSheetLoading, setGroupSheetLoading] = useState(false);
   // Bumped only on an intentional query change (typing, toggling a filter
   // chip) - never as a side effect of clearing the search box after
   // selecting a result, otherwise that clear would refit the camera to
@@ -163,7 +171,7 @@ export default function MapScreen() {
   const [tooZoomedOut, setTooZoomedOut] = useState(false);
   // Phase 1/2 crowdsourcing: which bathroom (if any) is open in the "fill in
   // missing data" form, and whether the "Add New Bathroom" form is open.
-  // Both are separate from selectedId/groupSheetIds below so opening one
+  // Both are separate from selectedId/groupSheetVenueId below so opening one
   // doesn't fight the map's own selection state.
   const [editingBathroom, setEditingBathroom] = useState<BathroomNearby | null>(null);
   const [ratingBathroom, setRatingBathroom] = useState<BathroomNearby | null>(null);
@@ -242,7 +250,7 @@ export default function MapScreen() {
       if (!bathroom) return;
       setSearchText("");
       setActiveFilters(new Set());
-      setGroupSheetIds(null);
+      setGroupSheetVenueId(null);
       setSelectedId(null);
       setFlyToRequest({ latitude: bathroom.latitude, longitude: bathroom.longitude, token: Date.now() });
       setPendingFocusId(bathroom.id);
@@ -264,7 +272,7 @@ export default function MapScreen() {
     if (Number.isNaN(latitude) || Number.isNaN(longitude)) return;
     setSearchText("");
     setActiveFilters(new Set());
-    setGroupSheetIds(null);
+    setGroupSheetVenueId(null);
     setSelectedId(null);
     setFlyToRequest({ latitude, longitude, token: Date.now() });
   }, [focusLat, focusLng, router]);
@@ -348,6 +356,25 @@ export default function MapScreen() {
     }
   }, []);
 
+  // Same out-of-order-response guard as boundsRequestIdRef, kept as a
+  // separate counter since this fetch runs independently of the bathrooms
+  // one above (different endpoint, no shared loading/error UI).
+  const venuesRequestIdRef = useRef(0);
+
+  const loadVenuesInBounds = useCallback(async (bounds: MapBounds) => {
+    const requestId = ++venuesRequestIdRef.current;
+    try {
+      const inView = await getVenuesInBounds(bounds);
+      if (requestId !== venuesRequestIdRef.current) return;
+      setVenues(inView);
+    } catch {
+      // Silent: the map keeps whatever venue pins it already had rather
+      // than blanking the map over a failed pin-rendering refresh - the
+      // bathrooms fetch above already surfaces a loading/error banner for
+      // this viewport.
+    }
+  }, []);
+
   useEffect(() => {
     if (!mapBounds) return;
 
@@ -356,16 +383,17 @@ export default function MapScreen() {
     // coordinate may fall outside the freshly-queried viewport - which
     // instantly closes the card/sheet out from under them and reads as the
     // map "spazzing out". Resumes with whatever bounds are current once
-    // they close it (selectedId/groupSheetIds below are dependencies, so
-    // closing either re-runs this effect even if mapBounds didn't change
+    // they close it (selectedId/groupSheetVenueId below are dependencies,
+    // so closing either re-runs this effect even if mapBounds didn't change
     // while paused).
-    if (selectedId || groupSheetIds) return;
+    if (selectedId || groupSheetVenueId) return;
 
     if (isViewportTooWide(mapBounds)) {
       setTooZoomedOut(true);
       setLoading(false);
       setLoadError(null);
       setBathrooms([]); // clear stale pins from before the user zoomed out
+      setVenues([]);
       return;
     }
     setTooZoomedOut(false);
@@ -374,9 +402,12 @@ export default function MapScreen() {
     // (inertial scrolling routinely fires a few "moveend"s in quick
     // succession) triggers one fetch - and one supercluster rebuild - for
     // the final position, not one per intermediate stop.
-    const timer = setTimeout(() => loadBathroomsInBounds(mapBounds), 300);
+    const timer = setTimeout(() => {
+      loadBathroomsInBounds(mapBounds);
+      loadVenuesInBounds(mapBounds);
+    }, 300);
     return () => clearTimeout(timer);
-  }, [mapBounds, loadBathroomsInBounds, selectedId, groupSheetIds]);
+  }, [mapBounds, loadBathroomsInBounds, loadVenuesInBounds, selectedId, groupSheetVenueId]);
 
   function handleRegionChangeComplete(bounds: MapBounds) {
     setMapBounds(bounds);
@@ -508,9 +539,33 @@ export default function MapScreen() {
   }, [isSearching, trimmedQuery]);
 
   const selectedBathroom = visibleBathrooms.find((b) => b.id === selectedId) ?? null;
-  const groupSheetBathrooms = groupSheetIds
-    ? visibleBathrooms.filter((b) => groupSheetIds.includes(b.id))
-    : [];
+
+  // Fetches the tapped venue's full restroom list on demand (not filtered
+  // from `bathrooms` - that array is capped/windowed to the viewport query
+  // and isn't guaranteed to contain every restroom belonging to this venue).
+  useEffect(() => {
+    if (!groupSheetVenueId) {
+      setGroupSheetBathrooms([]);
+      return;
+    }
+    let cancelled = false;
+    setGroupSheetLoading(true);
+    getBathroomsByVenueId(groupSheetVenueId)
+      .then((rows) => {
+        if (cancelled) return;
+        setGroupSheetBathrooms(rows);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setGroupSheetBathrooms([]);
+      })
+      .finally(() => {
+        if (!cancelled) setGroupSheetLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [groupSheetVenueId]);
 
   function selectBathroom(id: string) {
     setSelectedId(id);
@@ -534,7 +589,7 @@ export default function MapScreen() {
 
   function handleSelectFromGroup(id: string) {
     selectBathroom(id);
-    setGroupSheetIds(null);
+    setGroupSheetVenueId(null);
   }
 
   function handleUseMyLocation() {
@@ -617,15 +672,16 @@ export default function MapScreen() {
 
       <View style={styles.mapArea}>
         <MapView
+          venues={venues}
           bathrooms={visibleBathrooms}
           selectedId={selectedId}
           onSelectPin={(id) => {
-            setGroupSheetIds(null);
+            setGroupSheetVenueId(null);
             setSelectedId(id);
           }}
-          onSelectGroup={(ids) => {
+          onSelectVenue={(venueId) => {
             setSelectedId(null);
-            setGroupSheetIds(ids);
+            setGroupSheetVenueId(venueId);
           }}
           onPressBackground={() => setSelectedId(null)}
           onRegionChangeComplete={handleRegionChangeComplete}
@@ -683,7 +739,7 @@ export default function MapScreen() {
           borderRadius={radii.md}
           onPress={() => {
             setSelectedId(null);
-            setGroupSheetIds(null);
+            setGroupSheetVenueId(null);
             handleOpenAddBathroom();
           }}
           hitSlop={8}
@@ -695,11 +751,13 @@ export default function MapScreen() {
         </PressableScale>
       </View>
 
-      {groupSheetIds ? (
+      {groupSheetVenueId ? (
         <LocationGroupSheet
+          venueName={venues.find((v) => v.id === groupSheetVenueId)?.name ?? null}
           bathrooms={groupSheetBathrooms}
+          loading={groupSheetLoading}
           onSelectBathroom={handleSelectFromGroup}
-          onClose={() => setGroupSheetIds(null)}
+          onClose={() => setGroupSheetVenueId(null)}
         />
       ) : editingBathroom ? (
         <EditBathroomModal

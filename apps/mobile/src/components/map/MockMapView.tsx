@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { cardShadow, colors, fontSize, fontWeight, radii } from "../../theme";
-import type { BathroomNearby } from "../../types/database";
+import type { BathroomNearby, VenueWithStats } from "../../types/database";
 
 interface MockMapViewProps {
   bathrooms: BathroomNearby[];
@@ -14,7 +14,10 @@ interface MockMapViewProps {
   userLocation?: { latitude: number; longitude: number } | null;
   locateMeToken?: number | null;
   fitBoundsRequest?: number | null;
-  onSelectGroup?: (bathroomIds: string[]) => void;
+  // Accepted for prop-shape compatibility with MapView.web.tsx - this mock
+  // layout still renders pins from `bathrooms` directly, not `venues`.
+  venues?: VenueWithStats[];
+  onSelectVenue?: (venueId: string) => void;
   onRegionChangeComplete?: (bounds: { west: number; south: number; east: number; north: number }) => void;
   flyToRequest?: { latitude: number; longitude: number; token: number } | null;
 }
