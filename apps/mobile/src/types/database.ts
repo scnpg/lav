@@ -116,8 +116,8 @@ export interface VenueWithStats {
   latitude: number;
   longitude: number;
   restroom_count: number;
-  /** Highest cleanliness_score among the venue's RATED restrooms (review_count > 0) - null if none are rated yet. */
-  max_cleanliness: number | null;
+  /** Highest overall_score among the venue's RATED restrooms (review_count > 0) - null if none are rated yet. */
+  max_overall_score: number | null;
   /** The venue's one restroom id when restroom_count === 1 (the ~98.7% common case) - lets the map skip straight to that restroom's detail screen without a getBathroomsByVenueId round-trip. Null whenever restroom_count > 1. */
   single_bathroom_id: string | null;
 }

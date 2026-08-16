@@ -63,7 +63,7 @@ interface MapViewProps {
 // is needed the way the old per-bathroom rendering required. restroomCount >
 // 1 means this venue has more than one restroom (e.g. every floor inside one
 // mall) and renders as a group badge instead of a plain score pin. score is
-// the venue's max_cleanliness - undefined when none of its restrooms are
+// the venue's max_overall_score - undefined when none of its restrooms are
 // rated yet (an unrated pin). singleBathroomId mirrors
 // VenueWithStats.single_bathroom_id - the restroom to navigate straight to
 // when restroomCount === 1.
@@ -629,7 +629,7 @@ export function MapView({
           venueId: venue.id,
           restroomCount: venue.restroom_count,
           singleBathroomId: venue.single_bathroom_id,
-          score: venue.max_cleanliness ?? undefined,
+          score: venue.max_overall_score ?? undefined,
         },
         geometry: { type: "Point", coordinates: [venue.longitude, venue.latitude] },
       }))
