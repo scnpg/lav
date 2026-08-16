@@ -1,5 +1,8 @@
 import * as Location from "expo-location";
 import { useEffect, useRef, useState } from "react";
+import { Platform } from "react-native";
+
+import { clearWatchPositionWeb, watchPositionWeb } from "../lib/webGeolocation";
 
 export type LiveLocationStatus = "idle" | "requesting" | "granted" | "denied" | "error";
 
@@ -29,6 +32,28 @@ export function useLiveLocation() {
   useEffect(() => {
     let mounted = true;
     setStatus("requesting");
+
+    // Web: talk to navigator.geolocation directly (see webGeolocation.ts for
+    // why - expo-location's web permission-check layer is unreliable on iOS
+    // Safari and its watch implementation swallows errors). The browser's
+    // own watchPosition already prompts for permission and reports denial
+    // via its error callback, no separate check needed.
+    if (Platform.OS === "web") {
+      const watchId = watchPositionWeb(
+        (coords) => {
+          if (!mounted) return;
+          setCoords(coords);
+          setStatus("granted");
+        },
+        (outcome) => {
+          if (mounted) setStatus(outcome);
+        }
+      );
+      return () => {
+        mounted = false;
+        if (watchId !== null) clearWatchPositionWeb(watchId);
+      };
+    }
 
     (async () => {
       const { status: permStatus } = await Location.requestForegroundPermissionsAsync();

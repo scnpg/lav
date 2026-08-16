@@ -1,5 +1,8 @@
 import * as Location from "expo-location";
 import { useCallback, useState } from "react";
+import { Platform } from "react-native";
+
+import { getCurrentPositionWeb } from "../lib/webGeolocation";
 
 export type LocationRequestStatus = "idle" | "requesting" | "granted" | "denied" | "error";
 
@@ -21,6 +24,22 @@ export function useLocationOnDemand() {
 
   const requestLocation = useCallback(async (): Promise<Coordinates | null> => {
     setStatus("requesting");
+
+    // Web: talk to navigator.geolocation directly - see webGeolocation.ts
+    // for why expo-location's web permission-check layer is unreliable on
+    // iOS Safari (requestForegroundPermissionsAsync throws there instead of
+    // resolving denied/granted).
+    if (Platform.OS === "web") {
+      const result = await getCurrentPositionWeb();
+      if ("outcome" in result) {
+        setStatus(result.outcome);
+        return null;
+      }
+      setCoords(result);
+      setStatus("granted");
+      return result;
+    }
+
     try {
       const { status: permStatus } = await Location.requestForegroundPermissionsAsync();
       if (permStatus !== "granted") {
