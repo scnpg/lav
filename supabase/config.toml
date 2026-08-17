@@ -50,7 +50,13 @@ site_url = "http://localhost:8081"
 additional_redirect_urls = [
   "exp://localhost:8081",
   "exp://127.0.0.1:8081",
-  "https://scnpg.github.io/lav/",
+  # Bug fix: a bare URL in this list is only an EXACT match, but
+  # createAuthRedirectUrl() (src/lib/linking.ts) always appends a path -
+  # e.g. "https://scnpg.github.io/lav/profile" or
+  # "/lav/auth/reset-password" - so the old exact-match entry here never
+  # actually matched any real confirmation/recovery link. "**" wildcards
+  # any number of path segments.
+  "https://scnpg.github.io/lav/**",
 ]
 jwt_expiry = 3600
 
