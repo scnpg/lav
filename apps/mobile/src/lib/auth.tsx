@@ -134,6 +134,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error.code === "user_already_exists") {
         return { error: null, needsConfirmation: true, likelyExistingAccount: true };
       }
+      // Bug fix: for any 5xx response, @supabase/auth-js's handleError()
+      // (lib/fetch.js) deliberately skips parsing the response body at all -
+      // it treats every 500-599 status as a generic "retryable" transport
+      // error and builds the message by JSON.stringify()-ing the raw fetch
+      // Response object itself. Response's fields (status, ok, headers, ...)
+      // are prototype getters, not own-enumerable properties, so that
+      // stringify has nothing to serialize - it silently becomes "{}" (or
+      // occasionally another near-empty token depending on the runtime),
+      // never the actual server-provided message (e.g. GoTrue's real body
+      // here is `{"msg":"Error sending confirmation email", ...}` - confirmed
+      // by calling the endpoint directly). A 5xx here in practice means
+      // GoTrue couldn't send the confirmation email (broken/misconfigured
+      // SMTP), not a client mistake - surfacing our own clear message beats
+      // exposing that upstream stringify artifact verbatim.
+      if (error.status && error.status >= 500) {
+        return {
+          error: "We couldn't send your confirmation email right now. Please try again in a few minutes.",
+          needsConfirmation: false,
+          likelyExistingAccount: false,
+        };
+      }
       return { error: error.message, needsConfirmation: false, likelyExistingAccount: false };
     }
 
